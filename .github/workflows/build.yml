@@ -1,0 +1,76 @@
+# Збірка Miner Panel для Windows і Linux. Вручну (Actions → build → Run workflow) — файли в Artifacts запуску;
+# за тегом v* (git tag v2.0.1 && git push --tags) — ще й реліз на GitHub із MinerPanel.exe і Linux-файлом.
+name: build
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-22.04]     # 22.04 — старіший glibc, Linux-файл запуститься на більшості дистрибутивів
+    runs-on: ${{ matrix.os }}
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Linux deps for Qt
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libgl1 libdbus-1-3 libfontconfig1 fonts-dejavu-core \
+            libxkbcommon0 libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 libxcb-keysyms1 libxcb-shape0
+      - name: Install
+        run: pip install -r requirements.txt pytest==8.3.4 pyinstaller==6.11.1
+      - name: Tests (Windows — усі)
+        if: runner.os == 'Windows'
+        run: python -m pytest -q
+      - name: Tests (Linux — без перевірки вигляду, вона розрахована на шрифти Windows)
+        if: runner.os == 'Linux'
+        run: python -m pytest -q --deselect app/tests/test_layout.py
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        run: .\build-windows.bat
+        shell: cmd
+      - name: Build (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sh build-linux.sh
+          mv dist/MinerPanel dist/MinerPanel-linux-x86_64
+          chmod +x dist/MinerPanel-linux-x86_64
+          tar -czf dist/MinerPanel-linux-x86_64.tar.gz -C dist MinerPanel-linux-x86_64
+      - name: Smoke test (Linux) — зібраний файл стартує і знімає всі розділи
+        if: runner.os == 'Linux'
+        run: PANEL_TEST_SNAP=shots timeout 300 ./dist/MinerPanel-linux-x86_64 --demo && ls shots | head -40
+      - uses: actions/upload-artifact@v4
+        if: runner.os == 'Linux'
+        with:
+          name: shots-linux
+          path: shots/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MinerPanel-${{ runner.os }}
+          path: dist/MinerPanel*
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: MinerPanel-*
+          merge-multiple: true
+          path: dist
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/MinerPanel.exe
+            dist/MinerPanel-linux-x86_64.tar.gz

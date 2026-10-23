@@ -1,0 +1,33 @@
+# Особисті дані — ніколи не публікувати (гаманці, токен HiveOS, ключ hashrate.no, історія, облік)
+settings.json
+wallets.json
+coins.json
+stats.json
+stats.json.bak
+history.db
+*-cache.json
+*.tmp
+
+# Особисті нотатки розробки — лишаються локально
+DEVLOG.md
+CLAUDE.md
+.claude/
+
+# Завантажені майнери, логи, збірки
+bin/
+logs/
+dist/
+build/work/
+*.exe
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Стара панель (архів) — лишається лише Ledger.ps1 для перехресного тесту обліку
+old-panel/*
+!old-panel/lib/
+old-panel/lib/*
+!old-panel/lib/Ledger.ps1
