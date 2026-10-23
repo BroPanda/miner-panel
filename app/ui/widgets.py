@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (QCheckBox, QFrame, QHBoxLayout, QHeaderView, QLab
                                QAbstractItemView)
 
 from . import glossary, theme
+from ..i18n import num, tr
 
 
 # ---- Прості будівельні блоки -------------------------------------------------
@@ -198,12 +199,12 @@ def help_icon(key: str) -> QPushButton:
     return b
 
 
-def with_help(text: str, key: str, obj: str | None = None) -> QWidget:
+def with_help(text: str, key: str, obj: str | None = None, wrap: bool = False) -> QWidget:
     w = QWidget()
     h = QHBoxLayout(w)
     h.setContentsMargins(0, 0, 0, 0)
     h.setSpacing(6)
-    h.addWidget(label(text, obj))
+    h.addWidget(label(text, obj, wrap))
     h.addWidget(help_icon(key))
     h.addStretch(1)
     return w
@@ -508,7 +509,7 @@ def compact(v: float) -> str:
     if a >= 10 or v == 0:
         return f"{v:.0f}"
     s = f"{v:.1f}" if a >= 1 else f"{v:.2f}"
-    return s.replace(".", ",")
+    return num(s)
 
 
 class _ChartBase(QWidget):
@@ -518,7 +519,7 @@ class _ChartBase(QWidget):
         self.setMinimumHeight(150)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.hover: int | None = None
-        self.empty_text = "ще немає даних — з'являться під час майнінгу"
+        self.empty_text = tr("ще немає даних — з'являться під час майнінгу")
         self.drawn_text: list[QRectF] = []    # де реально лягли підписи — тест вигляду перевіряє, що вони в межах віджета
         self.drawn_marks: list[QRectF] = []   # стовпчики — тест перевіряє, що підписи на них не налазять
 
@@ -541,7 +542,7 @@ class _ChartBase(QWidget):
         if fmt is compact and step < 1:
             # Дрібні значення (копійки за перші хвилини) — стільки знаків, скільки потребує крок поділок
             dec = max(1, -math.floor(math.log10(step)))
-            fmt = lambda v, d=dec: f"{v:.{d}f}".replace(".", ",")  # noqa: E731
+            fmt = lambda v, d=dec: num(f"{v:.{d}f}")  # noqa: E731
         self._axis_fmt = fmt
         fm = p.fontMetrics()
         left = max(fm.horizontalAdvance(fmt(x)) for x in ticks + [lo]) + 10
@@ -712,7 +713,7 @@ class LineChart(_ChartBase):
         ay = round(y(avg)) + 0.5
         p.setPen(QPen(QColor(t.warning), 2, Qt.DashLine))
         p.drawLine(QPointF(r.left(), ay), QPointF(r.right(), ay))
-        atxt = "сер. " + self.value_text(avg)
+        atxt = tr('сер. ') + self.value_text(avg)
         f = p.font()
         f.setBold(True)
         p.setFont(f)

@@ -7,6 +7,7 @@ from pathlib import Path
 
 from . import storage, timeutil
 from .net import HttpError, get_json
+from ..i18n import tr
 
 API = "https://hashrate.no/api/v2"
 CACHE = "hashrateno-cache.json"
@@ -102,7 +103,7 @@ def apply(h: dict, d: dict) -> str | None:
     for t, dev in (d.get("bench") or {}).items():
         h["bench"][t] = {"time": now, "devices": dev}
     if d.get("auth"):
-        return "hashrate.no не прийняв ключ API"
+        return tr('hashrate.no не прийняв ключ API')
     return d.get("error") or None
 
 

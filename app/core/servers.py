@@ -13,6 +13,7 @@ import socket
 import statistics
 import time
 from collections import deque
+from ..i18n import tr
 
 PING_EVERY_S = 300
 WINDOW = 6
@@ -118,8 +119,7 @@ class Selector:
             return None
         gain = cs["median"] - best_ms
         if gain >= BETTER_ABS_MS and gain >= cs["median"] * BETTER_REL:
-            return {"url": best, "reason": f"{split(best)[0]} стабільно швидший: {best_ms:.0f} мс проти {cs['median']:.0f} мс "
-                                           f"у {split(cur)[0]} (медіана за 30 хв)"}
+            return {"url": best, "reason": tr('{0} стабільно швидший: {1:.0f} мс проти {2:.0f} мс у {3} (медіана за 30 хв)').format(split(best)[0], best_ms, cs['median'], split(cur)[0])}
         return None
 
     def switched(self, now: float | None = None) -> None:

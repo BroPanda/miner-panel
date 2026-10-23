@@ -7,6 +7,7 @@ from pathlib import Path
 
 from . import storage, timeutil
 from .net import get_json
+from ..i18n import tr
 
 CACHE = "market-cache.json"
 
@@ -38,7 +39,7 @@ def fetch(cg_ids: list[str], ticker_ids: list[str]) -> dict:
             if usd > 0 and uah > 0:
                 r["btc"] = {"usd": usd, "uah": usd * uah}
         except Exception as e:  # noqa: BLE001
-            r["error"] += f"резервний курс: {e} "
+            r["error"] += tr('резервний курс: {0} ').format(e)
     # Ціни бірж — лише якщо CoinGecko відповідає, інакше лише більше 429
     if cg_ok:
         for i in [x for x in ticker_ids if x]:

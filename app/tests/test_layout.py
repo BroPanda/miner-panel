@@ -4,17 +4,20 @@ from __future__ import annotations
 
 import copy
 import os
+import re
 from pathlib import Path
 
 import pytest
 from PySide6.QtCore import QRectF
-from PySide6.QtWidgets import QAbstractButton, QApplication, QLabel, QTableWidget, QWidget
+from PySide6.QtWidgets import QAbstractButton, QApplication, QComboBox, QLabel, QLineEdit, QTableWidget, QWidget
 
 WIDTHS = (1000, 1240, 1905)
 FONTS = ("normal", "large", "huge")
+CYR = re.compile("[Ѐ-ӿ]")
 
 
 def _variants() -> dict[str, dict]:
+    from app.i18n import tr
     from app.ui import sample
     base = sample.snapshot(True)
     out = {"sample": base}
@@ -26,7 +29,7 @@ def _variants() -> dict[str, dict]:
     v = copy.deepcopy(base)       # збиток і рівно кругле значення
     v["days"] = [(f"{d}.10", -12.5 + d * 0.1, "") for d in range(16, 22)] + [("22.10", -40.0, "")]
     v["profit_day"], v["devices"][0]["profit_day"] = -5.25, -5.25
-    v["summary"]["periods"] = [[n, "0,00 ₴", "12,34 ₴", "-12,34 ₴", False] for n in ("Сьогодні", "7 днів", "Весь час")]
+    v["summary"]["periods"] = [[n, "0,00 ₴", "12,34 ₴", "-12,34 ₴", False] for n in (tr("Сьогодні"), tr("7 днів"), tr("Весь час"))]
     out["loss"] = v
 
     v = copy.deepcopy(base)       # великий прибуток поруч зі збитком і дрібницями
@@ -42,7 +45,7 @@ def _variants() -> dict[str, dict]:
 
     v = copy.deepcopy(base)       # довгі назви
     loc = v["devices"][0]
-    loc["coin"] = "Quantus Network Token (QUANTUS) · дуже довга назва монети"
+    loc["coin"] = "Quantus Network Token (QUANTUS) · Extra Long Coin Name Example"
     loc["server"] = "stratum+tcp://eu-central-frankfurt-01.very-long-pool-domain.example.com:12345"
     v["summary"]["mined"] = "123 456,7890 QUANTUS"
     v["coins"]["ranking"][0].update(pool_fee="0,85 %", miner_fee="0,85 %")
@@ -158,13 +161,37 @@ def app():
     theme.apply(a, "dark", "large")
 
 
-@pytest.mark.parametrize("font", FONTS)
-def test_layout(app, font):
+def _untranslated(win, where: str) -> list[str]:
+    """Англійською на екрані не має лишитися кирилиці — інакше текст не потрапив у tr() або в словник i18n_en."""
+    texts = []
+    for w in win.findChildren(QLabel) + win.findChildren(QAbstractButton):
+        if w.isVisibleTo(win):
+            texts.append(w.text())
+    for w in win.findChildren(QLineEdit):
+        if w.isVisibleTo(win):
+            texts += [w.text(), w.placeholderText()]
+    for w in win.findChildren(QComboBox):
+        if w.isVisibleTo(win):
+            texts += [w.itemText(i) for i in range(w.count())]
+    for tb in win.findChildren(QTableWidget):
+        if tb.isVisibleTo(win):
+            texts += [h.text() for c in range(tb.columnCount()) if (h := tb.horizontalHeaderItem(c))]
+            texts += [it.text() for r in range(tb.rowCount()) for c in range(tb.columnCount()) if (it := tb.item(r, c))]
+    from app.i18n import LANGS
+    keep = set(LANGS.values()) | {"Мова / Language"}       # вибір мови — свідомо двома мовами
+    return [f"{where}: не перекладено «{s[:70]}»" for s in texts if s and CYR.search(s) and s not in keep]
+
+
+@pytest.mark.parametrize("lang,font", [("uk", f) for f in FONTS] + [("en", f) for f in FONTS])
+def test_layout(app, lang, font):
+    from app import i18n
     from app.ui import theme
     from app.ui.main_window import MainWindow
     snap_dir = os.environ.get("PANEL_TEST_SNAP")
     problems = []
-    for tname in ("dark", "light") if font == "large" else ("dark",):   # тема не змінює розмірів — світлу досить раз
+    i18n.set_lang(lang)
+    themes = ("dark", "light") if font == "large" and lang == "uk" else ("dark",)   # тема не змінює розмірів — світлу досить раз
+    for tname in themes:
         theme.apply(app, tname, font)
         for vname, snap in _variants().items():
             for width in WIDTHS:
@@ -176,13 +203,16 @@ def test_layout(app, font):
                 if win.width() > width:
                     problems.append(f"{tname}/{vname}/{width}: вікно не стискається до {width} px (мінімум {win.width()})")
                 for shot in _shots(app, win, snap):
-                    where = f"{tname}/{font}/{vname}/{width}/{shot}"
+                    where = f"{lang}/{tname}/{font}/{vname}/{width}/{shot}"
                     found = _problems(win, win.stack.currentWidget(), where)
+                    if lang == "en":
+                        found += _untranslated(win, where)
                     if found and snap_dir:
                         Path(snap_dir).mkdir(parents=True, exist_ok=True)
                         win.grab().save(str(Path(snap_dir) / (where.replace("/", "_").replace(":", "-") + ".png")))
                     problems += found
                 win.close()
                 win.deleteLater()
+    i18n.set_lang("uk")
     uniq = list(dict.fromkeys(problems))
     assert not uniq, f"{len(uniq)} проблем вигляду:\n" + "\n".join(uniq[:40])

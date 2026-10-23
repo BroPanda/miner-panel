@@ -10,6 +10,7 @@ from datetime import datetime
 from typing import Any
 
 from . import timeutil
+from ..i18n import num, tr
 
 MODE_NAMES = {"eff": "Економний", "profit": "Максимальний дохід", "custom": "Свій"}
 
@@ -32,8 +33,8 @@ def night_hours(settings: dict) -> int:
 def tariff_now(settings: dict, now: datetime | None = None) -> dict:
     h = (now or timeutil.now()).hour
     if is_night_hour(settings, h):
-        return {"night": True, "price": float(settings.get("TariffNight", 0)), "name": "нічний"}
-    return {"night": False, "price": float(settings.get("TariffDay", 0)), "name": "денний"}
+        return {"night": True, "price": float(settings.get("TariffNight", 0)), "name": tr('нічний')}
+    return {"night": False, "price": float(settings.get("TariffDay", 0)), "name": tr('денний')}
 
 
 def day_kwh_price(settings: dict) -> float:
@@ -126,10 +127,10 @@ def coin_perf(coin: dict, settings: dict, hrn: dict, gpu_name: str | None,
               live: dict | None = None) -> dict:
     """Живі (live = {coin_id, hr, watts}), виміряні раніше, еталон hashrate.no або оцінка з coins.json."""
     if live and live.get("coin_id") == coin.get("id") and live.get("hr", 0) > 0:
-        return {"hr": live["hr"], "watts": live["watts"], "src": "зараз"}
+        return {"hr": live["hr"], "watts": live["watts"], "src": tr('зараз')}
     m = (settings.get("Measured") or {}).get(profile_key(coin))
     if m and float(m.get("hr") or 0) > 0:
-        return {"hr": float(m["hr"]), "watts": float(m.get("watts") or 0), "src": "виміряно"}
+        return {"hr": float(m["hr"]), "watts": float(m.get("watts") or 0), "src": tr('виміряно')}
     return bench_perf(coin, hrn, gpu_name)
 
 
@@ -138,7 +139,7 @@ def bench_perf(coin: dict, hrn: dict, gpu_name: str | None) -> dict:
     if b:
         return {**b, "src": "hashrate.no"}
     e = coin.get("estimate") or {}
-    return {"hr": float(e.get("hr") or 0), "watts": float(e.get("watts") or 0), "src": "оцінка"}
+    return {"hr": float(e.get("hr") or 0), "watts": float(e.get("watts") or 0), "src": tr('оцінка')}
 
 
 def day_profit(market, settings, coin, perf) -> float | None:
@@ -164,8 +165,8 @@ def forecast(market, settings, coin, perf) -> dict | None:
     two = bool(settings.get("TwoZone", True))
     zones = []
     for name, hours, price, night in (
-            (f"Ніч ({f:02d}:00–{t:02d}:00)" if two else "Нічна зона вимкнена", nh, float(settings.get("TariffNight", 0)), True),
-            (f"День ({t:02d}:00–{f:02d}:00)" if two else "Цілодобово", 24 - nh, float(settings.get("TariffDay", 0)), False)):
+            (tr('Ніч ({0:02d}:00–{1:02d}:00)').format(f, t) if two else tr('Нічна зона вимкнена'), nh, float(settings.get("TariffNight", 0)), True),
+            (tr('День ({0:02d}:00–{1:02d}:00)').format(t, f) if two else tr('Цілодобово'), 24 - nh, float(settings.get("TariffDay", 0)), False)):
         cost = kwh_hour * price
         zones.append({"name": name, "hours": hours, "price": price, "night": night,
                       "income": income_hour * hours, "cost": cost * hours,
@@ -185,7 +186,7 @@ def ranking(coins, market, settings, hrn, gpu_name, live=None) -> list[dict]:
     for c in coins:
         bp = bench_perf(c, hrn, gpu_name)
         p = coin_perf(c, settings, hrn, gpu_name, live)
-        mp = p if p["src"] in ("зараз", "виміряно") else None
+        mp = p if p["src"] in (tr('зараз'), tr('виміряно')) else None
         rows.append({"coin": c, "bench": bp, "profit": day_profit(market, settings, c, bp),
                      "my": mp, "my_profit": day_profit(market, settings, c, mp)})
     rows.sort(key=lambda r: -math.inf if r["profit"] is None else r["profit"], reverse=True)
@@ -202,8 +203,8 @@ def payout_eta(market, settings, coin, d: dict, local_hr: float = 0.0, running_h
     res = {"pct": pct, "threshold": th, "total": total, "days": None, "workers": 0, "hr": 0.0, "text": ""}
     if total >= th:
         c = float(b.get("confirmed") or 0)
-        res["text"] = "поріг досягнуто — виплата найближчим часом" if c >= th else \
-            f"на виплату вистачає — прийде, коли дозріє ще {fmt_num(th - c, 4)} {coin.get('ticker')}"
+        res["text"] = tr('поріг досягнуто — виплата найближчим часом') if c >= th else \
+            tr('на виплату вистачає — прийде, коли дозріє ще {0} {1}').format(fmt_num(th - c, 4), coin.get('ticker'))
         res["days"] = 0
         return res
     s, n = 0.0, 0
@@ -219,11 +220,11 @@ def payout_eta(market, settings, coin, d: dict, local_hr: float = 0.0, running_h
         s, n = local_hr, 1
     res.update(workers=n, hr=s)
     if s <= 0:
-        res["text"] = "немає активних воркерів"
+        res["text"] = tr('немає активних воркерів')
         return res
     e = coin_economics(market, settings, coin, s)
     if not e or e["coins_per_day"] <= 0:
-        res["text"] = "час — коли будуть ринкові дані"
+        res["text"] = tr('час — коли будуть ринкові дані')
         return res
     res["days"] = (th - total) / e["coins_per_day"]
     return res
@@ -239,17 +240,17 @@ def can_switch(coin: dict, d: dict) -> dict:
     if th <= 0:
         return {"ok": None, "text": "—"}
     if total < th:
-        return {"ok": False, "text": f"ні — до виплати бракує {fmt_num(th - total, 4)} {tk}"}
+        return {"ok": False, "text": tr('ні — до виплати бракує {0} {1}').format(fmt_num(th - total, 4), tk)}
     if c >= th:
-        return {"ok": True, "text": "так — виплата найближчим часом"}
-    return {"ok": True, "text": f"так — на виплату вже вистачає, прийде сама ({fmt_num(th - c, 4)} {tk} ще дозріває)"}
+        return {"ok": True, "text": tr('так — виплата найближчим часом')}
+    return {"ok": True, "text": tr('так — на виплату вже вистачає, прийде сама ({0} {1} ще дозріває)').format(fmt_num(th - c, 4), tk)}
 
 
 # ---- Форматування ---------------------------------------------------------------
 def fmt_hr(h: float) -> str:
     for scale, unit in ((1e15, "PH/s"), (1e12, "TH/s"), (1e9, "GH/s"), (1e6, "MH/s"), (1e3, "kH/s")):
         if h >= scale:
-            return f"{h / scale:,.2f} {unit}".replace(",", " ").replace(".", ",")
+            return num(f"{h / scale:,.2f}") + f" {unit}"
     return f"{h:.0f} H/s" if h > 0 else "0"
 
 
@@ -257,28 +258,28 @@ def fmt_uah(v: float | None, sign: bool = True) -> str:
     if v is None:
         return "—"
     s = f"{v:+,.2f}" if sign else f"{v:,.2f}"
-    return s.replace(",", " ").replace(".", ",") + " ₴"
+    return num(s) + " ₴"
 
 
 def fmt_num(v: float, digits: int = 2) -> str:
-    return f"{v:,.{digits}f}".replace(",", " ").replace(".", ",")
+    return num(f"{v:,.{digits}f}")
 
 
 def fmt_duration_days(days: float) -> str:
     if days > 365:
-        return "понад рік"
+        return tr('понад рік')
     total_min = int(days * 24 * 60)
     d, rem = divmod(total_min, 24 * 60)
     h, m = divmod(rem, 60)
-    return f"{d} д {h} год" if d else f"{h} год {m} хв"
+    return tr('{0} д {1} год').format(d, h) if d else tr('{0} год {1} хв').format(h, m)
 
 
 def worker_word(n: int) -> str:
     if n % 10 == 1 and n % 100 != 11:
-        return "воркер"
+        return tr('воркер')
     if 2 <= n % 10 <= 4 and not 12 <= n % 100 <= 14:
-        return "воркери"
-    return "воркерів"
+        return tr('воркери')
+    return tr('воркерів')
 
 
 def recommended(coin: dict, pl_min: int, max_power: int) -> dict[str, Any]:

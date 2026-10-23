@@ -7,6 +7,7 @@ from ...core.economics import fmt_num, fmt_uah
 from .. import theme
 from ..widgets import Card, FlowLayout, button, fill_table, help_icon, label, make_table, with_help
 from . import Page
+from ...i18n import tr
 
 
 def _rows_card(title: str, rows: list[tuple[str, str, str | None]], help_key: str | None = None) -> Card:
@@ -28,7 +29,7 @@ class MoneyPage(Page):
         self.tabs = QTabWidget()
         self.tabs.setDocumentMode(True)
         self.t_bal, self.t_led, self.t_en = QWidget(), QWidget(), QWidget()
-        for w, name in ((self.t_bal, "Баланс і прогноз"), (self.t_led, "Хто скільки намайнив"), (self.t_en, "Світло")):
+        for w, name in ((self.t_bal, tr('Баланс і прогноз')), (self.t_led, tr('Хто скільки намайнив')), (self.t_en, tr('Світло'))):
             QVBoxLayout(w).setContentsMargins(0, 12, 0, 0)
             w.layout().setSpacing(16)
             self.tabs.addTab(w, name)
@@ -54,56 +55,56 @@ class MoneyPage(Page):
         lay = self._reset(self.t_bal)
         b, p = s["balance"], s["payout"]
         if b.get("available", True):
-            pool = _rows_card(b.get("title", "Пул"), [
-                ("Баланс", f"{b['total']}  {b['uah']}", None),
-                ("Підтверджено + в обробці", f"{b['confirmed']} + {b['pending']}", "pending"),
-                ("До виплати", f"{p['pct']:.0f} % з {p['threshold']} · {p['text']}", "payout"),
-                ("Можна відключитись?", ("✓ " if p["switch_ok"] else "▲ " if p["switch_ok"] is False else "") + p["switch_text"], "switch"),
-                ("Виплачено", b["paid"], None),
-                ("Ціна", b["price"], None),
-            ] + ([("Дані пулу оновлено", b["updated"], None)] if expert else []))
+            pool = _rows_card(b.get("title", tr('Пул')), [
+                (tr('Баланс'), f"{b['total']}  {b['uah']}", None),
+                (tr('Підтверджено + в обробці'), f"{b['confirmed']} + {b['pending']}", "pending"),
+                (tr('До виплати'), tr('{0:.0f} % з {1} · {2}').format(p['pct'], p['threshold'], p['text']), "payout"),
+                (tr('Можна відключитись?'), ("✓ " if p["switch_ok"] else "▲ " if p["switch_ok"] is False else "") + p["switch_text"], "switch"),
+                (tr('Виплачено'), b["paid"], None),
+                (tr('Ціна'), b["price"], None),
+            ] + ([(tr('Дані пулу оновлено'), b["updated"], None)] if expert else []))
             bar = QProgressBar()
             bar.setRange(0, 1000)
             bar.setValue(int(p["pct"] * 10))
             bar.setFixedHeight(8)
             pool.body.insertWidget(0, bar)
         else:
-            pool = Card(b.get("title", "Пул"))
-            pool.body.addWidget(label(b.get("message") or "Пул не надає статистики — баланс дивись на сайті пулу.", "Secondary", wrap=True))
-            pool.body.addWidget(label(f"Ціна: {b['price']}", "Secondary"))
+            pool = Card(b.get("title", tr('Пул')))
+            pool.body.addWidget(label(b.get("message") or tr('Пул не надає статистики — баланс дивись на сайті пулу.'), "Secondary", wrap=True))
+            pool.body.addWidget(label(tr('Ціна: {0}').format(b['price']), "Secondary"))
         if b.get("page"):
-            pool.body.addWidget(button("Відкрити сайт пулу ↗", "Link", lambda: self.action.emit("open:url:" + b["page"])))
+            pool.body.addWidget(button(tr('Відкрити сайт пулу ↗'), "Link", lambda: self.action.emit("open:url:" + b["page"])))
         lay.addWidget(pool)
         f = s["forecast"]
-        fc = Card("Прогноз на добу (цей ПК)", "tariff")
+        fc = Card(tr('Прогноз на добу (цей ПК)'), "tariff")
         if not f:
-            fc.body.addWidget(label("Прогноз з'явиться, коли будуть ринкові дані (WhatToMine, CoinGecko).", "Muted"))
+            fc.body.addWidget(label(tr("Прогноз з'явиться, коли будуть ринкові дані (WhatToMine, CoinGecko)."), "Muted"))
         else:
-            tb = make_table(["Зона тарифу", "Годин", "Тариф, ₴/кВт·год", "Дохід, ₴", "Світло, ₴", "Прибуток, ₴"], stretch=0)
-            rows = [[z["name"] + ("  ← зараз" if z["now"] else ""), z["hours"], fmt_num(z["price"]), fmt_num(z["income"]),
+            tb = make_table([tr('Зона тарифу'), tr('Годин'), tr('Тариф, ₴/кВт·год'), tr('Дохід, ₴'), tr('Світло, ₴'), tr('Прибуток, ₴')], stretch=0)
+            rows = [[z["name"] + (tr('  ← зараз') if z["now"] else ""), z["hours"], fmt_num(z["price"]), fmt_num(z["income"]),
                      fmt_num(z["cost"]), fmt_uah(z["profit"])] for z in f["zones"] if z["hours"]]
-            rows.append(["Разом за добу", 24, "", fmt_num(f["income"]), fmt_num(f["cost"]), fmt_uah(f["profit"])])
+            rows.append([tr('Разом за добу'), 24, "", fmt_num(f["income"]), fmt_num(f["cost"]), fmt_uah(f["profit"])])
             fill_table(tb, rows, bold_rows={len(rows) - 1}, numeric={1, 2, 3, 4, 5})
             fc.body.addWidget(tb)
-            fc.body.addWidget(label(f"Зараз: {f['now_text']}. Хешрейт і споживання: {f['src']}.", "Muted", wrap=True))
+            fc.body.addWidget(label(tr('Зараз: {0}. Хешрейт і споживання: {1}.').format(f['now_text'], f['src']), "Muted", wrap=True))
         lay.addWidget(fc)
         lay.addStretch(1)
 
         # ---- Хто скільки намайнив ----
         lay = self._reset(self.t_led)
         L = s["ledger"]
-        oc = Card("Власники: скільки монет належить кожному")
-        tb = make_table(["Власник", "Монета", "Намайнено", "Видано", "Залишок до видачі"], stretch=0)
+        oc = Card(tr('Власники: скільки монет належить кожному'))
+        tb = make_table([tr('Власник'), tr('Монета'), tr('Намайнено'), tr('Видано'), tr('Залишок до видачі')], stretch=0)
         fill_table(tb, L["owners"], numeric={2, 3, 4})
         oc.body.addWidget(tb)
         row = FlowLayout(spacing=8, stretch=False)     # кнопки переносяться, якщо не вміщаються
-        row.addWidget(button("Записати видачу…", "Primary", lambda: self.action.emit("ledger:payout")))
-        row.addWidget(button("Призначити власника…", None, self._owner))
+        row.addWidget(button(tr('Записати видачу…'), "Primary", lambda: self.action.emit("ledger:payout")))
+        row.addWidget(button(tr('Призначити власника…'), None, self._owner))
         row.addStretch(1)
         oc.body.addLayout(row)
         lay.addWidget(oc)
-        wc = Card("Воркери: нарахування пулу, поділене за виконаною роботою", "reconcile")
-        cols = ["Воркер", "Власник", "Монета · пул", "Частка", "Монети"] + (["Пул (6 год)", "Джерело"] if expert else [])
+        wc = Card(tr('Воркери: нарахування пулу, поділене за виконаною роботою'), "reconcile")
+        cols = [tr('Воркер'), tr('Власник'), tr('Монета · пул'), tr('Частка'), tr('Монети')] + ([tr('Пул (6 год)'), tr('Джерело')] if expert else [])
         tb = make_table(cols, stretch=0)
         names = L.get("worker_names") or [r[0] for r in L["workers"]]
         t = theme.current()
@@ -116,20 +117,19 @@ class MoneyPage(Page):
         tb.cellDoubleClicked.connect(lambda r, _c: self.action.emit(f"ledger:owner:{names[r]}") if names[r] else None)
         self._workers_table, self._worker_names = tb, names
         wc.body.addWidget(tb)
-        wc.body.addWidget(label("Подвійний клік по воркеру — призначити власника.", "Muted", wrap=True))
+        wc.body.addWidget(label(tr('Подвійний клік по воркеру — призначити власника.'), "Muted", wrap=True))
         for line in L["recon"]:
             wc.body.addWidget(label(line, "Secondary", wrap=True))
         for w in L["warn"]:
             wc.body.addWidget(label("▲ " + w, wrap=True))
         lay.addWidget(wc)
-        sh = Card("Однакові числа в усіх учасників", "checkpoint")
-        sh.body.addWidget(label("Якщо за твоїм гаманцем майнять інші люди: закрий період (наприклад, коли видаєш монети) "
-                                "і надішли код іншим — після імпорту в усіх будуть однакові числа, без жодного сервера.", "Secondary", wrap=True))
+        sh = Card(tr('Однакові числа в усіх учасників'), "checkpoint")
+        sh.body.addWidget(label(tr('Якщо за твоїм гаманцем майнять інші люди: закрий період (наприклад, коли видаєш монети) і надішли код іншим — після імпорту в усіх будуть однакові числа, без жодного сервера.'), "Secondary", wrap=True))
         row = FlowLayout(spacing=8, stretch=False)     # кнопки переносяться, якщо не вміщаються
-        row.addWidget(button("Закрити період і поділитися кодом", None, lambda: self.action.emit("ledger:close")))
-        row.addWidget(button("Вставити код від іншого учасника", None, lambda: self.action.emit("ledger:import")))
+        row.addWidget(button(tr('Закрити період і поділитися кодом'), None, lambda: self.action.emit("ledger:close")))
+        row.addWidget(button(tr('Вставити код від іншого учасника'), None, lambda: self.action.emit("ledger:import")))
         if expert:
-            row.addWidget(button("Показати поточний код", None, lambda: self.action.emit("ledger:export")))
+            row.addWidget(button(tr('Показати поточний код'), None, lambda: self.action.emit("ledger:export")))
         row.addStretch(1)
         sh.body.addLayout(row)
         lay.addWidget(sh)
@@ -138,17 +138,17 @@ class MoneyPage(Page):
         # ---- Світло ----
         lay = self._reset(self.t_en)
         e = s["energy"]
-        lc = Card("Цей ПК", "idle")
-        tb = make_table(["Монета", "Час майнінгу", "кВт·год (майнінг / уся карта)", "Світло, ₴", "Чистий прибуток, ₴"], stretch=2)
+        lc = Card(tr('Цей ПК'), "idle")
+        tb = make_table([tr('Монета'), tr('Час майнінгу'), tr('кВт·год (майнінг / уся карта)'), tr('Світло, ₴'), tr('Чистий прибуток, ₴')], stretch=2)
         fill_table(tb, e["local"], numeric={3, 4})
         lc.body.addWidget(tb)
-        lc.body.addWidget(label("Рахується лише відеокарта, поки працює майнер, мінус її простій.", "Muted", wrap=True))
+        lc.body.addWidget(label(tr('Рахується лише відеокарта, поки працює майнер, мінус її простій.'), "Muted", wrap=True))
         lay.addWidget(lc)
         if e["farm"]:
-            fcard = Card("Ферма HiveOS")
-            tb = make_table(["Риг", "Час (поки панель відкрита)", "кВт·год", "Світло, ₴"], stretch=0)
+            fcard = Card(tr('Ферма HiveOS'))
+            tb = make_table([tr('Риг'), tr('Час (поки панель відкрита)'), tr('кВт·год'), tr('Світло, ₴')], stretch=0)
             fill_table(tb, e["farm"], numeric={2, 3})
             fcard.body.addWidget(tb)
-            fcard.body.addWidget(label("За споживанням, яке повідомляє HiveOS, і твоїм тарифом день/ніч.", "Muted", wrap=True))
+            fcard.body.addWidget(label(tr('За споживанням, яке повідомляє HiveOS, і твоїм тарифом день/ніч.'), "Muted", wrap=True))
             lay.addWidget(fcard)
         lay.addStretch(1)

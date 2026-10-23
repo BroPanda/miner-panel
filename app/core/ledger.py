@@ -20,6 +20,7 @@ import uuid
 from typing import Any, Iterable
 
 from . import timeutil
+from ..i18n import tr
 
 SCALE = 1e9
 CODE_PREFIX = "MPK1:"
@@ -180,9 +181,9 @@ def account_coins(L: dict) -> dict:
             else:
                 und = dE
     elif dE < 0 and L.get("Time"):
-        warn.append("пул показує менше нарахованого, ніж у контрольній точці — перевір гаманець на сайті пулу")
+        warn.append(tr("пул показує менше нарахованого, ніж у контрольній точці — перевір гаманець на сайті пулу"))
     for n in sorted(L["Resets"]):
-        warn.append(f"{n}: пул скинув лічильник роботи — закрий період і передай код іншим")
+        warn.append(tr("{0}: пул скинув лічильник роботи — закрий період і передай код іншим").format(n))
     dist = 0.0
     for n in names:
         dist += coins[n]
@@ -280,13 +281,13 @@ def import_code(settings: dict, stats: dict, code: str) -> str:
     """Застосовує чужий код КТ (якщо його КТ новіша). Повертає підсумок; CodeError — якщо код поганий."""
     code = "".join(code.split())
     if not code.startswith(CODE_PREFIX):
-        raise CodeError("це не код контрольної точки (має починатися з MPK1:)")
+        raise CodeError(tr("це не код контрольної точки (має починатися з MPK1:)"))
     try:
         p = json.loads(gzip.decompress(base64.b64decode(code[len(CODE_PREFIX):], validate=True)).decode("utf-8-sig"))
     except Exception as e:  # noqa: BLE001 — будь-яке пошкодження коду
-        raise CodeError("код пошкоджений (скопіюй його повністю)") from e
+        raise CodeError(tr("код пошкоджений (скопіюй його повністю)")) from e
     if int(p.get("v", 0)) not in (1, 2) or not isinstance(p.get("acc"), dict):
-        raise CodeError("невідома версія коду (онови панель)")
+        raise CodeError(tr("невідома версія коду (онови панель)"))
     new = upd = old = 0
     for key in sorted(p["acc"]):
         a = p["acc"][key]
@@ -315,9 +316,9 @@ def import_code(settings: dict, stats: dict, code: str) -> str:
         if x and str(x.get("Id")) not in ids:
             stats.setdefault("payouts", []).append(x)
             np_ += 1
-    msg = f"Імпортовано: нових рахунків {new}, оновлено {upd}, видач {np_}."
+    msg = tr("Імпортовано: нових рахунків {0}, оновлено {1}, видач {2}.").format(new, upd, np_)
     if old:
-        msg += f" Пропущено {old} (у тебе контрольна точка новіша або та сама)."
+        msg += tr(" Пропущено {0} (у тебе контрольна точка новіша або та сама).").format(old)
     return msg
 
 

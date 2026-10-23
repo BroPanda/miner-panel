@@ -7,6 +7,7 @@ import time
 from typing import Any
 
 from .net import HttpError, get_json, send_json
+from ..i18n import tr
 
 API = "https://api2.hiveos.farm/api/v2"
 
@@ -18,9 +19,9 @@ def _h(token: str) -> dict:
 def error_text(e: Exception) -> str:
     st = getattr(e, "status", 0)
     if st == 401:
-        return "невірний або відкликаний токен (401) — створи новий у HiveOS → Account → API tokens"
+        return tr('невірний або відкликаний токен (401) — створи новий у HiveOS → Account → API tokens')
     if st == 403:
-        return "доступ заборонено (403) — перевір токен і права доступу до ферми"
+        return tr('доступ заборонено (403) — перевір токен і права доступу до ферми')
     return str(e)
 
 
@@ -130,11 +131,11 @@ class Watch:
         for w in workers:
             k = f"{w['farmId']}/{w['id']}"
             if not w["online"]:
-                alerts.append({"key": k, "worker": w, "kind": "offline", "text": f"{w['name']}: риг офлайн"})
+                alerts.append({"key": k, "worker": w, "kind": "offline", "text": tr('{0}: риг офлайн').format(w['name'])})
                 self.zero_since.pop(k, None)
                 continue
             if not w["minerOn"]:
-                alerts.append({"key": k, "worker": w, "kind": "stopped", "text": f"{w['name']}: майнер зупинено"})
+                alerts.append({"key": k, "worker": w, "kind": "stopped", "text": tr('{0}: майнер зупинено').format(w['name'])})
                 self.zero_since.pop(k, None)
                 continue
             if w["hr"] > 0:
@@ -144,7 +145,7 @@ class Watch:
             mins = (now - since) / 60
             if mins < 5:
                 continue
-            alerts.append({"key": k, "worker": w, "kind": "nohash", "text": f"{w['name']}: немає хешрейту {mins:.0f} хв"})
+            alerts.append({"key": k, "worker": w, "kind": "nohash", "text": tr('{0}: немає хешрейту {1:.0f} хв').format(w['name'], mins)})
             last = self.restarted.get(k)
             if auto and mins >= 10 and w.get("fsId") and (not last or now - last >= 1800):
                 self.restarted[k] = now

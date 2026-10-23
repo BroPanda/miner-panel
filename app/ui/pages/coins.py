@@ -10,21 +10,20 @@ from ...core.economics import fmt_uah
 from .. import theme
 from ..widgets import Card, CheckLine, button, fill_table, label, make_table, with_help
 from . import Page
+from ...i18n import tr
 
 
 class CoinsPage(Page):
     def __init__(self):
         super().__init__()
-        self.rank = Card("Рейтинг монет: прибуток за добу на твоїй карті з твоїм тарифом", "benchmark")
-        self.table = make_table(["Монета · пул", "Прибуток за добу", "Твій результат"], stretch=0)
+        self.rank = Card(tr('Рейтинг монет: прибуток за добу на твоїй карті з твоїм тарифом'), "benchmark")
+        self.table = make_table([tr('Монета · пул'), tr('Прибуток за добу'), tr('Твій результат')], stretch=0)
         self.table.cellDoubleClicked.connect(self._pick_row)
         self.rank.body.addWidget(self.table)
-        self.rank.body.addWidget(label("Порівняння в однакових умовах — за еталоном такої самої карти (hashrate.no) або оцінкою. "
-                                       "«Пул» і «Майнер» — комісії: пулу (вже врахована в прибутку) і майнера (частка часу, що він майнить розробнику; "
-                                       "«?» — невідома). Сірим — монети без гаманця. Подвійний клік — вибрати монету нижче.", "Muted", wrap=True))
+        self.rank.body.addWidget(label(tr('Порівняння в однакових умовах — за еталоном такої самої карти (hashrate.no) або оцінкою. «Пул» і «Майнер» — комісії: пулу (вже врахована в прибутку) і майнера (частка часу, що він майнить розробнику; «?» — невідома). Сірим — монети без гаманця. Подвійний клік — вибрати монету нижче.'), "Muted", wrap=True))
         self.lay.addWidget(self.rank)
 
-        self.pick = Card("Що майнити")
+        self.pick = Card(tr('Що майнити'))
         g = QGridLayout()
         g.setHorizontalSpacing(12)
         g.setVerticalSpacing(10)
@@ -35,15 +34,15 @@ class CoinsPage(Page):
         # Інша монета — її пул за замовчуванням; пул — це і є запис coins.json (монета+пул)
         self.coin.activated.connect(lambda i: self.action.emit(f"coins:preview:{self._coin_default.get(self.coin.itemData(i), '')}"))
         self.pool.activated.connect(lambda i: self.action.emit(f"coins:preview:{self.pool.itemData(i)}"))
-        rows = [("Монета", self.coin, None), ("Пул", self.pool, "pool"), ("Майнер", self.miner, None), ("Гаманець", self.wallet, None),
-                ("Ім'я воркера", self.worker, "worker"), ("Ціна монети", self.price, None)]
+        rows = [(tr('Монета'), self.coin, None), (tr('Пул'), self.pool, "pool"), (tr('Майнер'), self.miner, None), (tr('Гаманець'), self.wallet, None),
+                (tr("Ім'я воркера"), self.worker, "worker"), (tr('Ціна монети'), self.price, None)]
         for i, (k, w, hk) in enumerate(rows):
             g.addWidget(with_help(k, hk, "Secondary") if hk else label(k, "Secondary"), i, 0)
             g.addWidget(w, i, 1)
         wrow = QHBoxLayout()
-        wrow.addWidget(button("+ Додати", None, lambda: self.action.emit(f"wallet:add:{self._coin_id()}"), "Додати адресу гаманця"))
-        wrow.addWidget(button("✎", None, lambda: self.action.emit(f"wallet:edit:{self._coin_id()}:{self.wallet.currentData() or ''}"), "Змінити назву чи адресу"))
-        wrow.addWidget(button("−", None, lambda: self.action.emit(f"wallet:remove:{self._coin_id()}:{self.wallet.currentData() or ''}"), "Видалити адресу зі списку"))
+        wrow.addWidget(button(tr('+ Додати'), None, lambda: self.action.emit(f"wallet:add:{self._coin_id()}"), tr('Додати адресу гаманця')))
+        wrow.addWidget(button("✎", None, lambda: self.action.emit(f"wallet:edit:{self._coin_id()}:{self.wallet.currentData() or ''}"), tr('Змінити назву чи адресу')))
+        wrow.addWidget(button("−", None, lambda: self.action.emit(f"wallet:remove:{self._coin_id()}:{self.wallet.currentData() or ''}"), tr('Видалити адресу зі списку')))
         g.addLayout(wrow, 3, 2)
         g.setColumnStretch(1, 1)
         self.pick.body.addLayout(g)
@@ -51,20 +50,18 @@ class CoinsPage(Page):
         self.pick.body.addWidget(self.note)
         brow = QHBoxLayout()
         brow.addStretch(1)
-        self.apply_btn = button("Майнити це", "Primary", self._apply)
+        self.apply_btn = button(tr('Майнити це'), "Primary", self._apply)
         brow.addWidget(self.apply_btn)
         self.pick.body.addLayout(brow)
         self.lay.addWidget(self.pick)
 
-        self.servers = Card("Сервери пулу", "backup_servers")
-        self.srv_table = make_table(["Сервер", "Затримка зараз", "Медіана за 30 хв", "Стан"], stretch=0)
+        self.servers = Card(tr('Сервери пулу'), "backup_servers")
+        self.srv_table = make_table([tr('Сервер'), tr('Затримка зараз'), tr('Медіана за 30 хв'), tr('Стан')], stretch=0)
         self.servers.body.addWidget(self.srv_table)
-        self.srv_auto = CheckLine("Автоматично переходити на стабільно швидший сервер")
+        self.srv_auto = CheckLine(tr('Автоматично переходити на стабільно швидший сервер'))
         self.srv_auto.toggled.connect(lambda on: self.action.emit(f"set:ServerAuto:{int(on)}"))
         self.servers.body.addWidget(self.srv_auto)
-        self.srv_note = label("Затримка міряється раз на 5 хв. Сервер ліг — майнер одразу переходить на найшвидший робочий. "
-                              "На інший робочий — лише якщо він швидший щонайменше 30 хв поспіль (на 15 % і 8 мс), "
-                              "не частіше ніж раз на 2 год: кожне перемикання — кілька секунд без майнінгу.", "Muted", wrap=True)
+        self.srv_note = label(tr('Затримка міряється раз на 5 хв. Сервер ліг — майнер одразу переходить на найшвидший робочий. На інший робочий — лише якщо він швидший щонайменше 30 хв поспіль (на 15 % і 8 мс), не частіше ніж раз на 2 год: кожне перемикання — кілька секунд без майнінгу.'), "Muted", wrap=True)
         self.servers.body.addWidget(self.srv_note)
         self.lay.addWidget(self.servers)
         self.lay.addStretch(1)
@@ -95,17 +92,17 @@ class CoinsPage(Page):
     def render(self, s: dict, expert: bool) -> None:
         t = theme.current()
         c = s["coins"]
-        cols = ["Монета · пул", "Прибуток за добу", "Твій результат", "Пул", "Майнер"] + \
-            (["Еталон: хешрейт · Вт", "Джерело"] if expert else [])
+        cols = [tr('Монета · пул'), tr('Прибуток за добу'), tr('Твій результат'), tr('Пул'), tr('Майнер')] + \
+            ([tr('Еталон: хешрейт · Вт'), tr('Джерело')] if expert else [])
         self.table.setColumnCount(len(cols))
         self.table.setHorizontalHeaderLabels(cols)
-        self.table.horizontalHeaderItem(3).setToolTip("Комісія пулу")
-        self.table.horizontalHeaderItem(4).setToolTip("Комісія майнера (dev fee): частка часу, що він майнить розробнику")
+        self.table.horizontalHeaderItem(3).setToolTip(tr('Комісія пулу'))
+        self.table.horizontalHeaderItem(4).setToolTip(tr('Комісія майнера (dev fee): частка часу, що він майнить розробнику'))
         rows, colors, bold = [], {}, set()
         self._ids = [r["id"] for r in c["ranking"]]
         for i, r in enumerate(c["ranking"]):
             rows.append([("★ " if i == 0 and r["profit"] is not None else "") + r["name"],
-                         fmt_uah(r["profit"]) if r["profit"] is not None else "н/д", r["mine"] or "",
+                         fmt_uah(r["profit"]) if r["profit"] is not None else tr('н/д'), r["mine"] or "",
                          r["pool_fee"], r["miner_fee"]] +
                         ([r["bench"], r["src"]] if expert else []))
             if not r["has_wallet"]:
@@ -117,7 +114,7 @@ class CoinsPage(Page):
                 bold.add(i)
         fill_table(self.table, rows, bold_rows=bold, colors=colors, numeric={1, 2, 3, 4})
         for i, r in enumerate(c["ranking"]):
-            self.table.item(i, 4).setToolTip(f"Комісія {r['miner_name']}" + (" невідома" if r["miner_fee"] == "?" else ""))
+            self.table.item(i, 4).setToolTip(tr('Комісія {0}').format(r['miner_name']) + (tr(' невідома') if r["miner_fee"] == "?" else ""))
         f = c["form"]
         self._coin_default = f["coin_default"]
         self._fill(self.coin, f["coins"], f["ticker"])
@@ -125,14 +122,14 @@ class CoinsPage(Page):
         self._fill(self.miner, f["miners"], f["miner"])
         self._fill(self.wallet, f["wallets"], f["wallet"])
         tk = f.get("ticker", "")
-        self.wallet.setPlaceholderText(f"немає гаманця {tk} — натисни «+ Додати»")
+        self.wallet.setPlaceholderText(tr('немає гаманця {0} — натисни «+ Додати»').format(tk))
         self.apply_btn.setEnabled(bool(f["wallets"]))
-        self.apply_btn.setToolTip("" if f["wallets"] else f"Спершу додай гаманець {tk}")
+        self.apply_btn.setToolTip("" if f["wallets"] else tr('Спершу додай гаманець {0}').format(tk))
         self._fill(self.price, f["prices"], f["price"])
         if not self.worker.hasFocus():
             self.worker.setText(f["worker"])
         self.note.setText(f["note"])
-        self.apply_btn.setText("Зберегти" if f["is_current"] else "Майнити це")
+        self.apply_btn.setText(tr('Зберегти') if f["is_current"] else tr('Майнити це'))
         rows, colors = [], {}
         for i, x in enumerate(f["servers"]):
             rows.append([("▶ " if x["current"] else "   ") + x["url"], x["now"], x["median"], x["state"]])
@@ -142,4 +139,4 @@ class CoinsPage(Page):
         self.srv_auto.blockSignals(True)
         self.srv_auto.setChecked(bool(f.get("server_auto", True)))
         self.srv_auto.blockSignals(False)
-        self.servers.title.setText("Сервери пулу" + (f" · перевірено {f['ping_time']}" if f.get("ping_time") else ""))
+        self.servers.title.setText(tr('Сервери пулу') + (tr(' · перевірено {0}').format(f['ping_time']) if f.get("ping_time") else ""))

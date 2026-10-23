@@ -12,6 +12,7 @@ import shutil
 from dataclasses import dataclass
 
 from ..platform import IS_WIN, run_quiet
+from ...i18n import tr
 
 HELPER = "/usr/local/bin/minerpanel-gpu"
 
@@ -123,7 +124,7 @@ class Gpu:
             except OSError as e:
                 return str(e)
         if not r:
-            return "nvidia-smi недоступний"
+            return tr('nvidia-smi недоступний')
         return (r.stdout or "") + (r.stderr or "") if r.returncode != 0 else ""
 
     def set_tuning(self, pl: int, core: int, mem: int = 0, mem_off: int = 0) -> None:
@@ -144,7 +145,7 @@ class Gpu:
             return None
         if self._nvapi:
             return self._nvapi.set_offset(int(mhz))
-        return None if mhz == 0 else "зсув пам'яті в Linux поки не підтримується — решта розгону працює"
+        return None if mhz == 0 else tr("зсув пам'яті в Linux поки не підтримується — решта розгону працює")
 
     def reset(self) -> None:
         if self.test:

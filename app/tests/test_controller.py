@@ -174,3 +174,18 @@ def test_first_run_has_default_coins(tmp_path):
     assert not any(c.get("wallet") or c.get("worker") for c in s.coins)
     assert s.settings["Coin"] == "pearl-herominers" and not s.settings["HiveOsToken"] and not s.settings["HashrateNoKey"]
     assert (tmp_path / "coins.json").exists()
+
+
+def test_switch_language(ctl):
+    from app import i18n
+    act(ctl, "lang:en")
+    assert i18n.LANG == "en" and ctl.s["UiLang"] == "en"
+    assert ctl.win.nav_buttons["settings"].text().strip() == "Settings"     # вікно перебудовано англійською
+    act(ctl, "lang:uk")
+    assert i18n.LANG == "uk" and ctl.win.nav_buttons["settings"].text().strip() == "Налаштування"
+
+
+def test_summary_ticker_is_current_coin(ctl):
+    # Регресія: цикл форми «Монета / Пул» перезаписував тикер поточної монети (на «Огляді» був QUAN замість PRL)
+    s = ctl.snapshot()
+    assert s["summary"]["ticker"] == ctl.coin()["ticker"]

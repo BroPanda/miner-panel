@@ -92,9 +92,9 @@ def apply(app: QApplication, mode: str, font: str = "large") -> Theme:
     pal.setColor(QPalette.Disabled, QPalette.ButtonText, QColor(t.muted))
     pal.setColor(QPalette.Disabled, QPalette.WindowText, QColor(t.muted))
     app.setPalette(pal)
-    # Українська локаль: дробові числа в полях — з комою (4,32), як і в усьому інтерфейсі
-    from PySide6.QtCore import QLocale
-    QLocale.setDefault(QLocale(QLocale.Ukrainian, QLocale.Ukraine))
+    # Дробові числа в полях — як в усьому інтерфейсі: українською 4,32, англійською 4.32
+    from .. import i18n
+    i18n.set_lang(i18n.LANG)
     f = QFont("Segoe UI" if _is_windows() else "Sans Serif", pt(10))
     app.setFont(f)
     app.setStyleSheet(re.sub(r"font-size: ?(\d+)pt", lambda m: f"font-size: {pt(int(m.group(1)))}pt", stylesheet(t)))

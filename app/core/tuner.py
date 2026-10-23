@@ -11,6 +11,7 @@ import math
 import time
 from datetime import datetime
 from typing import Callable
+from ..i18n import tr
 
 SETTLE, MEASURE, STEP, MIN_CORE = 30, 60, 100, 1100
 
@@ -57,7 +58,7 @@ class Tuner:
         return r["hr"] / 1e9 / max(1.0, r["draw"])
 
     def fmt_score(self, ph: Phase, s: float) -> str:
-        return f"{s:.2f} ₴/год" if ph.price is not None else f"{s:.1f} GH/s на Вт"
+        return tr('{0:.2f} ₴/год').format(s) if ph.price is not None else tr('{0:.1f} GH/s на Вт').format(s)
 
     def can(self, ph: Phase, c: int) -> bool:
         return MIN_CORE <= c <= self.max_core and c < self.hot_cap and c not in ph.seen
@@ -86,7 +87,7 @@ class Tuner:
             ph = self.phase
             if ph.next is None:
                 if ph.best:
-                    self.add_log(f"{ph.title}: найкраще — ядро {ph.best['core']} МГц ({self.fmt_score(ph, self.score(ph, ph.best))})")
+                    self.add_log(tr('{0}: найкраще — ядро {1} МГц ({2})').format(ph.title, ph.best['core'], self.fmt_score(ph, self.score(ph, ph.best))))
                 if self.i + 1 >= len(self.phases):
                     self.complete()
                     return
@@ -94,7 +95,7 @@ class Tuner:
                 self.i += 1
                 ph = self.phase
                 ph.next = prev.best["core"] if prev.best else (next(iter(prev.seen)) if prev.seen else None)
-                self.add_log(f"--- Прохід {ph.title}: старт від {ph.next} МГц")
+                self.add_log(tr('--- Прохід {0}: старт від {1} МГц').format(ph.title, ph.next))
                 if ph.next is None:
                     continue
                 continue
@@ -110,23 +111,22 @@ class Tuner:
             self.stage_t = "settle"
             self.until = now + SETTLE
             self.apply(self.max_power, c, self.mem, self.mem_off)
-            d = {"base": "база", "up": "вгору", "down": "вниз", "refine": "уточнення"}[ph.stage]
-            self.status = f"Прохід {ph.title}, точка {self.n}: ядро {c} МГц ({d})… ~{SETTLE + MEASURE} с на точку"
+            d = {"base": tr('база'), "up": tr('вгору'), "down": tr('вниз'), "refine": tr('уточнення')}[ph.stage]
+            self.status = tr('Прохід {0}, точка {1}: ядро {2} МГц ({3})… ~{4} с на точку').format(ph.title, self.n, c, d, SETTLE + MEASURE)
             return
 
     def add_result(self, ph: Phase, r: dict, from_cache: bool) -> None:
         ph.seen.add(int(r["core"]))
         improved = False
         if r["hot"]:
-            self.add_log(f"[{ph.title}] ядро {r['core']} МГц: перегрів, вище не йду.")
+            self.add_log(tr('[{0}] ядро {1} МГц: перегрів, вище не йду.').format(ph.title, r['core']))
         else:
             improved = self.better(ph, r)
-            line = (f"[{ph.title}] ядро {r['core']} МГц: {r['hr'] / 1e12:.2f} TH/s, {r['draw']:.1f} Вт → "
-                    f"{self.fmt_score(ph, self.score(ph, r))}")
+            line = (tr('[{0}] ядро {1} МГц: {2:.2f} TH/s, {3:.1f} Вт → {4}').format(ph.title, r['core'], r['hr'] / 1e12, r['draw'], self.fmt_score(ph, self.score(ph, r))))
             if ph.best:
-                line += "  [КРАЩЕ]" if improved else "  [гірше]"
+                line += tr('  [КРАЩЕ]') if improved else tr('  [гірше]')
             if from_cache:
-                line += "  (з попереднього виміру)"
+                line += tr('  (з попереднього виміру)')
             self.add_log(line)
             if improved:
                 ph.best = r
@@ -205,6 +205,6 @@ class Tuner:
             if ph.best:
                 pl = int(math.ceil(ph.best["draw"] * 1.15))
                 self.result.append((ph, ph.best, pl))
-                self.add_log(f"НАЙКРАЩЕ [{ph.title}]: ядро {ph.best['core']} МГц, ліміт ≈{pl} Вт — {self.fmt_score(ph, self.score(ph, ph.best))}")
+                self.add_log(tr('НАЙКРАЩЕ [{0}]: ядро {1} МГц, ліміт ≈{2} Вт — {3}').format(ph.title, ph.best['core'], pl, self.fmt_score(ph, self.score(ph, ph.best))))
         if not self.result:
-            self.add_log("Не вдалося підібрати — повертаю попередні налаштування.")
+            self.add_log(tr('Не вдалося підібрати — повертаю попередні налаштування.'))

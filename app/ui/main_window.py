@@ -14,6 +14,7 @@ from .pages.money import MoneyPage
 from .pages.overview import OverviewPage
 from .pages.settings import SettingsPage
 from .widgets import StatusDot, button, label
+from ..i18n import tr
 
 # Значки малюються лініями (icons.py): символи шрифту на кшталт ▦ ◈ у Segoe UI виходили крихітними
 SECTIONS = [("overview", "Огляд"), ("devices", "Пристрої"), ("money", "Гроші"),
@@ -50,7 +51,7 @@ class MainWindow(QMainWindow):
         for key, text in SECTIONS:
             if key == "journal":
                 sv.addStretch(1)
-            b = QPushButton(f"  {text}")
+            b = QPushButton(f"  {tr(text)}")
             b.setIcon(icons.nav_icon(key, theme.pt(20)))
             b.setIconSize(QSize(theme.pt(20), theme.pt(20)))
             b.setObjectName("NavButton")
@@ -65,7 +66,7 @@ class MainWindow(QMainWindow):
         self.upd_badge.setAlignment(Qt.AlignCenter)
         self.upd_badge.setFixedSize(22, 18)
         self.upd_badge.hide()
-        self.version = label("версія 2.0 · Windows і Linux", "Muted")
+        self.version = label(tr('версія 2.0 · Windows і Linux'), "Muted")
         self.version.setContentsMargins(16, 8, 0, 0)
         sv.addWidget(self.version)
         h.addWidget(side)
@@ -90,12 +91,12 @@ class MainWindow(QMainWindow):
         hh.addLayout(st, 1)
         pr = QVBoxLayout()
         pr.setSpacing(0)
-        self.h_profit_lbl = label("ПРИБУТОК ЗА ДОБУ", "HeaderProfitLabel")
+        self.h_profit_lbl = label(tr('ПРИБУТОК ЗА ДОБУ'), "HeaderProfitLabel")
         pr.addWidget(self.h_profit_lbl, 0, Qt.AlignRight)
         self.h_profit = label("—", "HeaderProfit")
         pr.addWidget(self.h_profit, 0, Qt.AlignRight)
         hh.addLayout(pr)
-        self.run_btn = button("▶  Старт", "Start", lambda: self.action.emit("run:toggle"))
+        self.run_btn = button(tr('▶  Старт'), "Start", lambda: self.action.emit("run:toggle"))
         self.run_btn.setMinimumWidth(130)
         hh.addWidget(self.run_btn)
         rv.addWidget(head)
@@ -150,20 +151,20 @@ class MainWindow(QMainWindow):
             self.h_profit.setStyleSheet(f"color:{t.muted}")
         running = s["running"]
         if self.run_btn.objectName() != ("Stop" if running else "Start"):
-            self.run_btn.setText("■  Стоп" if running else "▶  Старт")
+            self.run_btn.setText(tr('■  Стоп') if running else tr('▶  Старт'))
             self.run_btn.setObjectName("Stop" if running else "Start")
             self.run_btn.style().unpolish(self.run_btn)
             self.run_btn.style().polish(self.run_btn)
         n = len(snap["notices"])
-        self.nav_buttons["overview"].setText(f"  Огляд{'   ▲ ' + str(n) if n else ''}")
-        upd = [m["name"] for m in snap.get("miners") or [] if m.get("state") == "є оновлення"]
+        self.nav_buttons["overview"].setText(tr('  Огляд{0}').format('   ▲ ' + str(n) if n else ''))
+        upd = [m["name"] for m in snap.get("miners") or [] if m.get("state") == tr('є оновлення')]
         if upd:
             b = self.nav_buttons["settings"]
             self.upd_badge.setText(str(len(upd)))
             self.upd_badge.setStyleSheet(f"background:{t.warning}; color:#1a1a19; border-radius:9px; font-weight:700; font-size:{theme.pt(8)}pt;")
             self.upd_badge.move(b.width() - self.upd_badge.width() - 10, (b.height() - self.upd_badge.height()) // 2)
-            self.upd_badge.setToolTip("Є оновлення: " + ", ".join(upd))
-            b.setToolTip("Є оновлення майнерів: " + ", ".join(upd))
+            self.upd_badge.setToolTip(tr('Є оновлення: ') + ", ".join(upd))
+            b.setToolTip(tr('Є оновлення майнерів: ') + ", ".join(upd))
             self.upd_badge.show()
         else:
             self.upd_badge.hide()

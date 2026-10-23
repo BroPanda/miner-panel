@@ -12,6 +12,7 @@ from pathlib import Path
 
 from .gpu import HELPER
 from .platform import self_command
+from ..i18n import tr
 
 HELPER_SCRIPT = r"""#!/bin/sh
 # Miner Panel: дозволені дії з відеокартою (лише знизити або скинути). Встановлено командою --install.
@@ -34,7 +35,7 @@ esac
 
 def install() -> int:
     user = os.environ.get("SUDO_USER") or getpass.getuser()
-    print("Miner Panel: встановлюю помічника розгону (потрібен пароль адміністратора).")
+    print(tr('Miner Panel: встановлюю помічника розгону (потрібен пароль адміністратора).'))
     with tempfile.TemporaryDirectory() as tmp:
         h = Path(tmp) / "minerpanel-gpu"
         h.write_text(HELPER_SCRIPT, encoding="utf-8")
@@ -45,15 +46,14 @@ def install() -> int:
                 ["install", "-m", "0440", "-o", "root", "-g", "root", str(s), "/etc/sudoers.d/minerpanel"]]
         for c in cmds:
             if subprocess.run(["sudo", *c]).returncode != 0:
-                print("Не вдалося:", " ".join(c))
+                print(tr('Не вдалося:'), " ".join(c))
                 return 1
     # Ярлик у меню програм
     apps = Path.home() / ".local" / "share" / "applications"
     apps.mkdir(parents=True, exist_ok=True)
     (apps / "minerpanel.desktop").write_text(
-        "[Desktop Entry]\nType=Application\nName=Miner Panel\nComment=Майнінг на відеокарті NVIDIA\n"
-        f"Exec={' '.join(self_command())}\nTerminal=false\nCategories=Utility;\n", encoding="utf-8")
-    print("Готово. Запускай Miner Panel з меню програм або подвійним клацанням.")
+        tr('[Desktop Entry]\nType=Application\nName=Miner Panel\nComment=Майнінг на відеокарті NVIDIA\nExec={0}\nTerminal=false\nCategories=Utility;\n').format(' '.join(self_command())), encoding="utf-8")
+    print(tr('Готово. Запускай Miner Panel з меню програм або подвійним клацанням.'))
     return 0
 
 

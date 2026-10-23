@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import ctypes
 import struct
+from ...i18n import tr
 
 SIZE = 0x1CF8          # NV_GPU_PERF_PSTATES20_INFO_V2
 VERSION = 0x21CF8
@@ -85,5 +86,5 @@ def set_offset(mhz: int, index: int = 0) -> str | None:
     if r == 0:
         return None
     if r == -137:
-        return "NVAPI: потрібні права адміністратора"
-    return f"NVAPI: код {r}"
+        return tr('NVAPI: потрібні права адміністратора')
+    return tr('NVAPI: код {0}').format(r)

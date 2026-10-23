@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import json
+import os
 import socket
 import time
 import webbrowser
@@ -32,6 +33,8 @@ from .ui import dialogs, theme
 from .ui.main_window import MainWindow
 from .ui.tray import Tray
 from .ui.wizard import Wizard
+from . import i18n
+from .i18n import tr
 
 TICK_MS = 2000
 REBUILD_S = 10
@@ -41,7 +44,7 @@ HIVE_S = 60
 
 def _fmt_dur(sec: float) -> str:
     t = timedelta(seconds=int(sec))
-    return f"{t.days} д {t.seconds // 3600} год" if t.days else f"{t.seconds // 3600} год {t.seconds % 3600 // 60:02d} хв"
+    return tr('{0} д {1} год').format(t.days, t.seconds // 3600) if t.days else tr('{0} год {1:02d} хв').format(t.seconds // 3600, t.seconds % 3600 // 60)
 
 
 def _addr(a: str) -> str:
@@ -55,6 +58,12 @@ class Controller(QObject):
         self.store = storage.Store(test=test).load()
         self.s = self.store.settings
         self.root = self.store.root
+        if not self.s.get("UiLang"):
+            # Уже налаштована панель лишається українською; новий користувач — мова системи
+            old = self.s.get("WizardDone") or any(c.get("wallet") for c in self.store.coins)
+            self.s["UiLang"] = "uk" if old else i18n.system_lang()
+            self.store.save_settings()
+        i18n.set_lang(os.environ.get("PANEL_LANG") or str(self.s["UiLang"]))
         self.gpu = Gpu(test)
         g0 = self.gpu.info()
         self.gpu_name = g0.name if g0 else "GPU"
@@ -111,11 +120,10 @@ class Controller(QObject):
         # Майнер, що вже працює (запущений раніше), — підхоплюємо
         if self.runner.adopt(self.coin(), lambda c: coin_miner_id(self.s, c)) and not test:
             self.fo.want_running = True
-            self.events.log(f"Підхоплено майнер, що вже працював: {self.runner.miner.name}")
+            self.events.log(tr('Підхоплено майнер, що вже працював: {0}').format(self.runner.miner.name))
         if IS_LINUX and not test and not Gpu.helper_installed():
-            self.events.raise_(ev.Notice("helper", ev.WARN, "Розгін ще не дозволено",
-                                         "Щоб панель могла знижувати частоти і потужність, один раз виконай у терміналі: "
-                                         "./MinerPanel --install (запитає пароль). Майнити можна й без цього.", None, None), toast=False)
+            self.events.raise_(ev.Notice("helper", ev.WARN, tr('Розгін ще не дозволено'),
+                                         tr('Щоб панель могла знижувати частоти і потужність, один раз виконай у терміналі: ./MinerPanel --install (запитає пароль). Майнити можна й без цього.'), None, None), toast=False)
         # Вікно і значок біля годинника
         theme.apply(app, str(self.s.get("UiTheme") or "dark"), str(self.s.get("UiFont") or "large"))
         self.win = MainWindow()
@@ -181,8 +189,8 @@ class Controller(QObject):
         self.gpu.set_tuning(pl, int(p["Core"]), int(p.get("Mem") or 0), mo)
 
     def mode_text(self) -> str:
-        n = ec.MODE_NAMES.get(str(self.s.get("Mode")), "")
-        return n + (f" · {'ніч' if self.zone == 'night' else 'день'}" if self.night_split() else "")
+        n = tr(ec.MODE_NAMES.get(str(self.s.get("Mode")), ""))
+        return n + (" · " + (tr('ніч') if self.zone == 'night' else tr('день')) if self.night_split() else "")
 
     # ---- майнер ---------------------------------------------------------------
     def start_mining(self, manual: bool = True) -> None:
@@ -190,7 +198,7 @@ class Controller(QObject):
         if not coin:
             return
         if not coin.get("wallet"):
-            dialogs.info(self.win, "Старт", f"Для «{coin['name']}» не вказано гаманець. Додай його в розділі «Монети».", True)
+            dialogs.info(self.win, tr('Старт'), tr('Для «{0}» не вказано гаманець. Додай його в розділі «Монети».').format(coin['name']), True)
             self.win.show_section("coins")
             return
         m = MINERS.get(coin_miner_id(self.s, coin))
@@ -199,7 +207,7 @@ class Controller(QObject):
         if not updater.miner_exe(self.root, m):
             if not manual:
                 return
-            if dialogs.confirm(self.win, "Майнер", f"{m.name} ще не встановлено. Завантажити з офіційного GitHub (з перевіркою SHA256)?", "Завантажити"):
+            if dialogs.confirm(self.win, tr('Майнер'), tr('{0} ще не встановлено. Завантажити з офіційного GitHub (з перевіркою SHA256)?').format(m.name), tr('Завантажити')):
                 self.install_miner(m.id, then_start=True)
             return
         if manual:
@@ -212,7 +220,7 @@ class Controller(QObject):
         pref = self.preferred_server if self.preferred_server in urls else None
         ok, err = self.runner.start(coin, m, self.sel.order(urls, first=pref))
         if not ok:
-            dialogs.info(self.win, "Старт", err, True)
+            dialogs.info(self.win, tr('Старт'), err, True)
             return
         if not self.test and self.runner.proc:
             self.stop_watchdog()
@@ -223,7 +231,7 @@ class Controller(QObject):
         self.session = {"kwh": 0.0, "cost": 0.0, "coins": 0.0, "last": time.time()}
         self.samples.clear()
         self.pool_next = time.time()
-        self.events.log(f"Старт: {coin['name']}, {m.name}, режим «{self.mode_text()}», сервери: {', '.join(self.runner.servers)}")
+        self.events.log(tr('Старт: {0}, {1}, режим «{2}», сервери: {3}').format(coin['name'], m.name, self.mode_text(), ', '.join(self.runner.servers)))
         self.dirty = True
 
     def stop_mining(self, reason: str = "") -> None:
@@ -239,7 +247,7 @@ class Controller(QObject):
         self.flush()
         self.store.save_settings()
         self.store.save_stats()
-        self.events.log("Стоп" + (f": {reason}" if reason else ""))
+        self.events.log(tr('Стоп') + (f": {reason}" if reason else ""))
         self.dirty = True
 
     def stop_watchdog(self) -> None:
@@ -257,13 +265,13 @@ class Controller(QObject):
         if not m or "install" in self.jobs:
             return
         if self.test:
-            self.install_msg = f"тестовий режим: {m.name} не встановлюю (нічого не записую на диск)"
+            self.install_msg = tr('тестовий режим: {0} не встановлюю (нічого не записую на диск)').format(m.name)
             return
         if self.runner.alive() and self.runner.miner and self.runner.miner.id == mid:
-            dialogs.info(self.win, "Майнери", f"{m.name} зараз працює — спершу натисни Стоп.")
+            dialogs.info(self.win, tr('Майнери'), tr('{0} зараз працює — спершу натисни Стоп.').format(m.name))
             return
         rel = self.releases.get(mid)
-        self.install_msg = f"Завантажую {m.name}…"
+        self.install_msg = tr('Завантажую {0}…').format(m.name)
 
         def job():
             r = rel if rel and rel.get("Url") and rel.get("Digest") else updater.latest_release(m)
@@ -283,7 +291,7 @@ class Controller(QObject):
             self.tick_local(now)
             self.tick_hive(now)
         except Exception as e:  # noqa: BLE001 — такт не має зупинятись через одну помилку
-            self.events.log(f"Помилка такту: {e}", ev.ERROR)
+            self.events.log(tr('Помилка такту: {0}').format(e), ev.ERROR)
         snap = self.snapshot()
         self.win.update_header(snap)
         lv = snap["status"]
@@ -293,7 +301,7 @@ class Controller(QObject):
                 try:
                     self.win.render(snap)
                 except Exception as e:  # noqa: BLE001 — помилку сторінки видно в журналі, а не мовчазне порожнє вікно
-                    self.events.log(f"Помилка показу сторінки: {e!r}", ev.ERROR)
+                    self.events.log(tr('Помилка показу сторінки: {0!r}').format(e), ev.ERROR)
                     import traceback
                     traceback.print_exc()
                 self.last_rebuild, self.dirty = now, False
@@ -378,7 +386,7 @@ class Controller(QObject):
             if not self.test:
                 market.save_cache(self.root, d, timeutil.now())
         else:
-            self.market_error = err or (d or {}).get("error") or "не вдалося завантажити"
+            self.market_error = err or (d or {}).get("error") or tr('не вдалося завантажити')
             self.market_next = time.time() + market.next_delay(d or {}, False).total_seconds()
 
     def on_hrn(self, d, err, _n):
@@ -394,9 +402,9 @@ class Controller(QObject):
     def on_pool(self, r, err, _n):
         cur = self.coin()
         if err or not r:
-            self.pool_error = err or "немає відповіді"
-            self.events.raise_(ev.Notice("pool:api", ev.INFO, "Статистика пулу тимчасово недоступна",
-                                         f"Сайт пулу не відповідає ({self.pool_error}). Майнінг від цього не залежить; повтор за {POOL_MIN} хв.", None, None), toast=False)
+            self.pool_error = err or tr('немає відповіді')
+            self.events.raise_(ev.Notice("pool:api", ev.INFO, tr('Статистика пулу тимчасово недоступна'),
+                                         tr('Сайт пулу не відповідає ({0}). Майнінг від цього не залежить; повтор за {1} хв.').format(self.pool_error, POOL_MIN), None, None), toast=False)
             return
         cid, d = r
         if not cur or cid != cur["id"]:
@@ -409,8 +417,8 @@ class Controller(QObject):
             self.store.save_stats()
         paid = ((d.get("paid") or {}).get("total"))
         if paid is not None and self.last_paid is not None and paid > self.last_paid + 1e-9:
-            self.events.once(ev.Notice("payout", ev.OK, "Пул зробив виплату",
-                                       f"{paid - self.last_paid:.4f} {cur['ticker']} надіслано на твій гаманець.", None, None))
+            self.events.once(ev.Notice("payout", ev.OK, tr('Пул зробив виплату'),
+                                       tr('{0:.4f} {1} надіслано на твій гаманець.').format(paid - self.last_paid, cur['ticker']), None, None))
         if paid is not None:
             self.last_paid = paid
 
@@ -439,7 +447,7 @@ class Controller(QObject):
                 self._hist_sample(f"hive:{w['farmId']}/{w['id']}", w["hr"], w["maxTemp"], w["power"], time.time())
 
     def on_hivecmd(self, r, err, name):
-        self.hive_msg = f"{name.split(':', 1)[1]} — {'помилка: ' + err if err else 'виконано'} о {datetime.now():%H:%M:%S}"
+        self.hive_msg = tr('{0} — {1} о {2:%H:%M:%S}').format(name.split(':', 1)[1], 'помилка: ' + err if err else 'виконано', datetime.now())
         self.events.log(f"HiveOS: {self.hive_msg}", ev.ERROR if err else ev.INFO)
         self.hive_next = time.time() + 5
 
@@ -460,8 +468,8 @@ class Controller(QObject):
         if d and not self.test:
             self.sel.switched()
             self.preferred_server = d["url"]
-            self.events.once(ev.Notice("server", ev.INFO, "Перехід на швидший сервер пулу",
-                                       d["reason"] + ". Майнер перезапуститься на кілька секунд.", None, None))
+            self.events.once(ev.Notice("server", ev.INFO, tr('Перехід на швидший сервер пулу'),
+                                       d["reason"] + tr('. Майнер перезапуститься на кілька секунд.'), None, None))
             self.start_mining(manual=False)
 
     def on_pingp(self, r, err, _n):
@@ -481,20 +489,18 @@ class Controller(QObject):
         mid = getattr(self, "_install_id", "")
         m = MINERS.get(mid)
         if err:
-            if IS_WIN and ("miner-dl-" in err or "антивірус" in err):
-                self.install_msg = (f"Windows Defender заблокував {m.name if m else mid}. Антивіруси позначають майнери як «потенційно "
-                                    "небажані» — файл з офіційного GitHub і перевіряється за SHA256.")
-                self.events.raise_(ev.Notice("defender", ev.WARN, "Defender заблокував майнер",
-                                             f"Файл {m.name if m else mid} з офіційного GitHub (SHA256 перевіряється) антивірус видалив під час завантаження. "
-                                             "Можна дозволити лише теку майнерів (bin) — решта захисту лишається.",
-                                             "Дозволити теку bin", f"defender:allow:{mid}"), toast=False)
+            if IS_WIN and ("miner-dl-" in err or tr('антивірус') in err):
+                self.install_msg = (tr('Windows Defender заблокував {0}. Антивіруси позначають майнери як «потенційно небажані» — файл з офіційного GitHub і перевіряється за SHA256.').format(m.name if m else mid))
+                self.events.raise_(ev.Notice("defender", ev.WARN, tr('Defender заблокував майнер'),
+                                             tr('Файл {0} з офіційного GitHub (SHA256 перевіряється) антивірус видалив під час завантаження. Можна дозволити лише теку майнерів (bin) — решта захисту лишається.').format(m.name if m else mid),
+                                             tr('Дозволити теку bin'), f"defender:allow:{mid}"), toast=False)
             else:
-                self.install_msg = f"Не вдалося встановити {m.name if m else mid}: {err}"
-            self.events.log(f"Не вдалося встановити {m.name if m else mid}: {err}", ev.ERROR)
+                self.install_msg = tr('Не вдалося встановити {0}: {1}').format(m.name if m else mid, err)
+            self.events.log(tr('Не вдалося встановити {0}: {1}').format(m.name if m else mid, err), ev.ERROR)
             return
         self.events.clear("defender")
         rel, path = r
-        self.install_msg = f"{m.name} {rel['Version']} встановлено, SHA256 перевірено."
+        self.install_msg = tr('{0} {1} встановлено, SHA256 перевірено.').format(m.name, rel['Version'])
         self.events.log(self.install_msg, ev.OK)
         if getattr(self, "_install_then_start", False):
             self.start_mining(manual=True)
@@ -559,24 +565,24 @@ class Controller(QObject):
                     if cur and servers.same_server(cur, u):
                         self.sel.mark_bad(u)
                 self.preferred_server = None
-            self.events.once(ev.Notice("failover", ev.WARN, "Майнер перезапущено",
-                                       f"Причина: {r['reason']}. " + ("Панель перейшла на найшвидший робочий сервер пулу. " if r["shift"] else "")
-                                       + "Нічого робити не треба.", None, None))
+            self.events.once(ev.Notice("failover", ev.WARN, tr('Майнер перезапущено'),
+                                       tr('Причина: {0}. ').format(r['reason']) + (tr('Панель перейшла на найшвидший робочий сервер пулу. ') if r["shift"] else "")
+                                       + tr('Нічого робити не треба.'), None, None))
             self.start_mining(manual=False)
         # Захист від перегріву
         if g and running and not self.test:
             mx = int(self.s.get("MaxTemp", 75))
             if g.temp >= mx + 8:
-                self.stop_mining(f"критична температура {g.temp} °C")
-                self.events.raise_(ev.Notice("temp", ev.ERROR, f"Майнінг зупинено: {g.temp} °C",
-                                             f"Карта нагрілась на 8 °C вище межі {mx} °C. Розгін скинуто. Перевір охолодження, потім натисни Старт.", "Старт", "run:toggle"))
+                self.stop_mining(tr('критична температура {0} °C').format(g.temp))
+                self.events.raise_(ev.Notice("temp", ev.ERROR, tr('Майнінг зупинено: {0} °C').format(g.temp),
+                                             tr('Карта нагрілась на 8 °C вище межі {0} °C. Розгін скинуто. Перевір охолодження, потім натисни Старт.').format(mx), tr('Старт'), "run:toggle"))
             elif not self.tuner and g.temp >= mx and now - self.last_guard >= 30:
                 self.last_guard = now
                 p = self.active_profile()
                 core = int(p["Core"]) or g.core
                 p["Core"] = max(1100, core - 100)
                 self.apply_active()
-                self.events.raise_(ev.Notice("temp", ev.WARN, f"Гаряче: {g.temp} °C", f"Панель знизила ядро до {p['Core']} МГц, щоб тримати ≤ {mx} °C.", None, None))
+                self.events.raise_(ev.Notice("temp", ev.WARN, tr('Гаряче: {0} °C').format(g.temp), tr('Панель знизила ядро до {0} МГц, щоб тримати ≤ {1} °C.').format(p['Core'], mx), None, None))
             elif g.temp < mx - 3:
                 n = self.events.active.get("temp")
                 if n and n.level == ev.WARN:         # аварійну зупинку прибирає лише новий старт
@@ -588,7 +594,7 @@ class Controller(QObject):
                 self.zone = want
                 if running:
                     self.apply_active()
-                self.events.log(f"Перемкнено на режим «{self.mode_text()}»")
+                self.events.log(tr('Перемкнено на режим «{0}»').format(self.mode_text()))
                 self.dirty = True
         if self.reapply_at and now >= self.reapply_at:
             self.reapply_at = None
@@ -597,7 +603,7 @@ class Controller(QObject):
         if self.tuner:
             if not running:
                 self.tuner = None
-                self.events.log("Майнер зупинився — автопідбір скасовано.", ev.WARN)
+                self.events.log(tr('Майнер зупинився — автопідбір скасовано.'), ev.WARN)
             else:
                 self.tuner.step(g.temp if g else None, int(self.s.get("MaxTemp", 75)), self.hr if st else None, g.draw if g else None, now)
                 if self.tuner.done:
@@ -641,25 +647,25 @@ class Controller(QObject):
             keys.add(k)
             w = a["worker"]
             if a["kind"] == "offline":
-                n = ev.Notice(k, ev.ERROR, f"{w['name']} не на зв'язку", f"Риг {w['farm']} / {w['name']} не відповідає HiveOS. Перевір живлення та інтернет рига.",
-                              "Відкрити", f"open:device:hive:{a['key']}")
+                n = ev.Notice(k, ev.ERROR, tr("{0} не на зв'язку").format(w['name']), tr('Риг {0} / {1} не відповідає HiveOS. Перевір живлення та інтернет рига.').format(w['farm'], w['name']),
+                              tr('Відкрити'), f"open:device:hive:{a['key']}")
             elif a["kind"] == "stopped":
-                n = ev.Notice(k, ev.WARN, f"{w['name']}: майнер зупинено", "Риг онлайн, але майнер на ньому не працює, тож риг не заробляє.",
-                              "Запустити", f"device:start:hive:{a['key']}")
+                n = ev.Notice(k, ev.WARN, tr('{0}: майнер зупинено').format(w['name']), tr('Риг онлайн, але майнер на ньому не працює, тож риг не заробляє.'),
+                              tr('Запустити'), f"device:start:hive:{a['key']}")
             else:
-                n = ev.Notice(k, ev.WARN, f"{w['name']}: немає хешрейту", a["text"].split(": ", 1)[1].capitalize() + ". Перезапусти майнер, якщо так і лишиться.",
-                              "Перезапустити", f"device:restart:hive:{a['key']}")
+                n = ev.Notice(k, ev.WARN, tr('{0}: немає хешрейту').format(w['name']), a["text"].split(": ", 1)[1].capitalize() + tr('. Перезапусти майнер, якщо так і лишиться.'),
+                              tr('Перезапустити'), f"device:restart:hive:{a['key']}")
             self.events.raise_(n)
         self.events.clear_prefix("hive:", keep=keys)
         for w in restart:
-            self.hive_command(w, "miner", "restart", "автоперезапуск майнера (немає хешрейту 10 хв)")
+            self.hive_command(w, "miner", "restart", tr('автоперезапуск майнера (немає хешрейту 10 хв)'))
 
     def hive_worker(self, key: str) -> dict | None:
         return next((w for w in (self.hive or {}).get("workers", []) if f"{w['farmId']}/{w['id']}" == key), None)
 
     def hive_command(self, w: dict, kind: str, value, what: str) -> None:
         if self.test:
-            self.hive_msg = f"тестовий режим: «{what}» не надіслано"
+            self.hive_msg = tr('тестовий режим: «{0}» не надіслано').format(what)
             return
         self.events.log(f"HiveOS {w['farm']}/{w['name']}: {what}")
         self.hive_msg = f"{w['name']}: {what}…"
@@ -669,37 +675,36 @@ class Controller(QObject):
     # ---- автопідбір ----
     def start_tune(self) -> None:
         if not self.st:
-            dialogs.info(self.win, "Автопідбір", "Спочатку натисни Старт і дочекайся, поки з'явиться хешрейт.")
+            dialogs.info(self.win, tr('Автопідбір'), tr("Спочатку натисни Старт і дочекайся, поки з'явиться хешрейт."))
             return
         mode = str(self.s.get("Mode"))
         if mode == "custom":
-            dialogs.info(self.win, "Автопідбір", "«Свій» режим налаштовується вручну. Для автопідбору вибери «Економний» або «Максимальний дохід».")
+            dialogs.info(self.win, tr('Автопідбір'), tr('«Свій» режим налаштовується вручну. Для автопідбору вибери «Економний» або «Максимальний дохід».'))
             return
         coin = self.running_coin()
         if mode == "profit" and not ec.coin_economics(self.market, self.s, coin, 1e9):
-            dialogs.info(self.win, "Автопідбір", "Для цієї монети ще немає ринкових даних — зачекай хвилину або вибери «Економний».")
+            dialogs.info(self.win, tr('Автопідбір'), tr('Для цієї монети ще немає ринкових даних — зачекай хвилину або вибери «Економний».'))
             return
         day, night = float(self.s["TariffDay"]), float(self.s["TariffNight"])
         if mode == "profit":
             if self.night_split():
-                phases = [Phase(["profitDay"], day, "ДЕНЬ"), Phase(["profitNight"], night, "НІЧ")]
+                phases = [Phase(["profitDay"], day, tr('ДЕНЬ')), Phase(["profitNight"], night, tr('НІЧ'))]
             elif self.s.get("TwoZone", True):
                 nh = ec.night_hours(self.s)
-                phases = [Phase(["profitDay"], (nh * night + (24 - nh) * day) / 24, "ДОБА")]
+                phases = [Phase(["profitDay"], (nh * night + (24 - nh) * day) / 24, tr('ДОБА'))]
             else:
-                phases = [Phase(["profitDay"], day, "ТАРИФ")]
+                phases = [Phase(["profitDay"], day, tr('ТАРИФ'))]
             base = int(self.profile(coin, "profitDay")["Core"]) or ec.recommended(coin, self.pl_range[0], int(self.s["MaxPower"]))["Core"]
         else:
-            phases = [Phase(["eff", "effNight"], None, "ЕКОНОМНИЙ")]
+            phases = [Phase(["eff", "effNight"], None, tr('ЕКОНОМНИЙ'))]
             base = ec.recommended(coin, self.pl_range[0], int(self.s["MaxPower"]))["Core"]
         p = self.active_profile()
         self.tuner = Tuner(phases, base, int(self.s.get("TuneCoreMax", 1800)), int(self.s.get("MaxPower", 150)),
                            int(p.get("Mem") or 0), int(p.get("MemOff") or 0),
                            lambda hr: ec.income_per_hour(self.market, self.s, coin, hr), self.gpu.set_tuning)
-        self.tuner.add_log(f"{coin['name']}, режим «{ec.MODE_NAMES[mode]}». Старт від {base} МГц, межі 1100–{self.s.get('TuneCoreMax')} МГц, "
-                           f"{self.s.get('MaxPower')} Вт, {self.s.get('MaxTemp')} °C")
+        self.tuner.add_log(tr('{0}, режим «{1}». Старт від {2} МГц, межі 1100–{3} МГц, {4} Вт, {5} °C').format(coin['name'], tr(ec.MODE_NAMES[mode]), base, self.s.get('TuneCoreMax'), self.s.get('MaxPower'), self.s.get('MaxTemp')))
         self.tuner.start()
-        self.events.log("Автопідбір розпочато")
+        self.events.log(tr('Автопідбір розпочато'))
         self.dirty = True
 
     def finish_tune(self) -> None:
@@ -714,11 +719,11 @@ class Controller(QObject):
             pl = max(self.pl_range[0], min(int(self.s["MaxPower"]), pl))
             for k in ph.profiles:
                 self.s["Profiles"].setdefault(ec.profile_key(coin), {})[k] = {"PL": pl, "Core": int(best["core"]), "Mem": t.mem, "MemOff": t.mem_off}
-            parts.append(f"{ph.title.lower()}: {best['core']} МГц / {pl} Вт")
+            parts.append(tr('{0}: {1} МГц / {2} Вт').format(ph.title.lower(), best['core'], pl))
         self.zone = self.wanted_zone()
         self.apply_active()
         self.store.save_settings()
-        self.events.once(ev.Notice("tune", ev.OK, "Автопідбір завершено", "Збережено — " + ", ".join(parts) + ".", None, None))
+        self.events.once(ev.Notice("tune", ev.OK, tr('Автопідбір завершено'), tr('Збережено — ') + ", ".join(parts) + ".", None, None))
         self.dirty = True
 
     # ---- дії ----------------------------------------------------------------
@@ -733,6 +738,8 @@ class Controller(QObject):
                 self.s["UiTheme"] = parts[1]
                 self.store.save_settings()
                 self.rebuild_window()
+            elif k == "lang":
+                self.set_lang(parts[1])
             elif k == "font":
                 self.s["UiFont"] = parts[1]
                 self.store.save_settings()
@@ -781,9 +788,9 @@ class Controller(QObject):
                     self.install_miner(parts[2])
                 elif parts[1] == "rollback" and len(parts) > 2 and parts[2]:
                     prev = updater.rollback(self.root, parts[2])
-                    self.install_msg = f"Активна версія {prev}." if prev else "Попередньої версії немає."
+                    self.install_msg = tr('Активна версія {0}.').format(prev) if prev else tr('Попередньої версії немає.')
                 else:
-                    dialogs.info(self.win, "Майнери", "Вибери майнер у таблиці.")
+                    dialogs.info(self.win, tr('Майнери'), tr('Вибери майнер у таблиці.'))
             elif k == "defender" and parts[1] == "allow":
                 self.allow_defender(parts[2] if len(parts) > 2 else "")
             elif k == "wizard":
@@ -793,8 +800,8 @@ class Controller(QObject):
             elif k == "open":
                 self.win.show_section(parts[1])
         except Exception as e:  # noqa: BLE001
-            self.events.log(f"Помилка дії {k}: {e}", ev.ERROR)
-            dialogs.info(self.win, "Помилка", str(e), True)
+            self.events.log(tr('Помилка дії {0}: {1}').format(k, e), ev.ERROR)
+            dialogs.info(self.win, tr('Помилка'), str(e), True)
         self.tick_soon()
 
     def tick_soon(self) -> None:
@@ -821,7 +828,7 @@ class Controller(QObject):
         elif p[0] == "auto":
             self.start_tune()
         elif p[0] == "cancel" and self.tuner:
-            self._tune_log = self.tuner.log + ["Скасовано, попередні налаштування повернуто."]
+            self._tune_log = self.tuner.log + [tr('Скасовано, попередні налаштування повернуто.')]
             self.tuner = None
             self.apply_active()
 
@@ -835,9 +842,9 @@ class Controller(QObject):
         w = self.hive_worker(dev.split(":", 1)[1])
         if not w:
             return
-        if act == "stop" and not dialogs.confirm(self.win, "HiveOS", f"Зупинити майнер на ризі {w['name']}? Риг перестане майнити, доки не натиснеш «Старт».", "Зупинити"):
+        if act == "stop" and not dialogs.confirm(self.win, "HiveOS", tr('Зупинити майнер на ризі {0}? Риг перестане майнити, доки не натиснеш «Старт».').format(w['name']), tr('Зупинити')):
             return
-        self.hive_command(w, "miner", act, {"start": "старт майнера", "stop": "зупинка майнера", "restart": "перезапуск майнера"}[act])
+        self.hive_command(w, "miner", act, {"start": tr('старт майнера'), "stop": tr('зупинка майнера'), "restart": tr('перезапуск майнера')}[act])
 
     def hive_action(self, p: list[str]) -> None:
         if p[0] == "token":
@@ -857,9 +864,9 @@ class Controller(QObject):
             if not w or not (0 <= idx < len(lst)):
                 return
             item = lst[idx]
-            what = f"польотний лист «{item['name']}»" if p[0] == "fs" else f"профіль розгону «{item['name']}»"
-            if dialogs.confirm(self.win, "HiveOS", f"Застосувати {what} до рига {w['name']}?" +
-                               (" Майнер на ризі перезапуститься з монетою і пулом цього листа." if p[0] == "fs" else ""), "Застосувати"):
+            what = tr('польотний лист «{0}»').format(item['name']) if p[0] == "fs" else tr('профіль розгону «{0}»').format(item['name'])
+            if dialogs.confirm(self.win, "HiveOS", tr('Застосувати {0} до рига {1}?').format(what, w['name']) +
+                               (tr(' Майнер на ризі перезапуститься з монетою і пулом цього листа.') if p[0] == "fs" else ""), tr('Застосувати')):
                 self.hive_command(w, p[0], item["id"], what)
 
     def apply_coin(self, d: dict, ask: bool = True) -> None:
@@ -886,7 +893,7 @@ class Controller(QObject):
         self.store.save_settings()
         if self.runner.alive():
             self.start_mining(manual=True)
-        elif changed and ask and dialogs.confirm(self.win, "Монета", f"Вибрано {c['name']}. Почати майнінг зараз?", "Почати"):
+        elif changed and ask and dialogs.confirm(self.win, tr('Монета'), tr('Вибрано {0}. Почати майнінг зараз?').format(c['name']), tr('Почати')):
             self.start_mining(manual=True)
 
     def wallet_action(self, act: str, cid: str, addr: str) -> None:
@@ -904,38 +911,37 @@ class Controller(QObject):
             if w:
                 self.store.edit_wallet(tk, addr, w["label"], w["address"])
         elif act == "remove" and addr:
-            if dialogs.confirm(self.win, "Гаманець", f"Видалити з книги гаманець {_addr(addr)} для {tk}? Монети на пулі від цього не зникнуть.", "Видалити"):
+            if dialogs.confirm(self.win, tr('Гаманець'), tr('Видалити з книги гаманець {0} для {1}? Монети на пулі від цього не зникнуть.').format(_addr(addr), tk), tr('Видалити')):
                 self.store.remove_wallet(tk, addr)
         self.store.save_wallets()
         if self.runner.alive() and self.running_coin() and self.running_coin()["ticker"] == tk:
-            self.events.log("Гаманець змінено — нова адреса діятиме після перезапуску майнера.")
+            self.events.log(tr('Гаманець змінено — нова адреса діятиме після перезапуску майнера.'))
 
     def ledger_action(self, act: str, arg: str) -> None:
         st, s = self.store.stats, self.s
         if act == "close":
-            if not dialogs.confirm(self.win, "Бухгалтерія", "Закрити період для всіх рахунків? Розподілене зараз зафіксується як нова контрольна точка. "
-                                   "Після цього надішли код іншим учасникам, щоб у всіх були однакові числа.", "Закрити період"):
+            if not dialogs.confirm(self.win, tr('Бухгалтерія'), tr('Закрити період для всіх рахунків? Розподілене зараз зафіксується як нова контрольна точка. Після цього надішли код іншим учасникам, щоб у всіх були однакові числа.'), tr('Закрити період')):
                 return
             ledger.close_period(st)
             self.store.save_stats()
-            dialogs.code(self.win, "Код контрольної точки", "Надішли цей код іншим учасникам (вони натиснуть «Вставити код від іншого учасника»):",
+            dialogs.code(self.win, tr('Код контрольної точки'), tr('Надішли цей код іншим учасникам (вони натиснуть «Вставити код від іншого учасника»):'),
                          ledger.export_code(s, st))
         elif act == "export":
-            dialogs.code(self.win, "Код контрольної точки", "Поточна контрольна точка, власники і видачі:", ledger.export_code(s, st))
+            dialogs.code(self.win, tr('Код контрольної точки'), tr('Поточна контрольна точка, власники і видачі:'), ledger.export_code(s, st))
         elif act == "import":
-            code = dialogs.code(self.win, "Імпорт контрольної точки", "Встав код, який надіслав інший учасник (починається з MPK1:):", "", readonly=False)
+            code = dialogs.code(self.win, tr('Імпорт контрольної точки'), tr('Встав код, який надіслав інший учасник (починається з MPK1:):'), "", readonly=False)
             if code:
                 try:
                     msg = ledger.import_code(s, st, code)
                 except ledger.CodeError as e:
-                    dialogs.info(self.win, "Бухгалтерія", f"Не вдалося імпортувати: {e}", True)
+                    dialogs.info(self.win, tr('Бухгалтерія'), tr('Не вдалося імпортувати: {0}').format(e), True)
                     return
                 self.store.save_stats()
                 self.store.save_settings()
-                dialogs.info(self.win, "Бухгалтерія", msg)
+                dialogs.info(self.win, tr('Бухгалтерія'), msg)
         elif act == "owner":
             if not arg:
-                dialogs.info(self.win, "Бухгалтерія", "Вибери воркера в таблиці.")
+                dialogs.info(self.win, tr('Бухгалтерія'), tr('Вибери воркера в таблиці.'))
                 return
             cur = (s.get("WorkerOwners") or {}).get(arg) or ledger.worker_owner(s, self.local_names(), arg)
             o = dialogs.owner(self.win, arg, ledger.owner_names(s, st), cur)
@@ -945,7 +951,7 @@ class Controller(QObject):
         elif act == "payout":
             tickers = sorted({L["Ticker"] for L in st["ledger"].values()})
             if not tickers:
-                dialogs.info(self.win, "Бухгалтерія", "Ще немає нарахувань.")
+                dialogs.info(self.win, tr('Бухгалтерія'), tr('Ще немає нарахувань.'))
                 return
             t = ledger.owner_totals(s, st, self.local_names())
             left = {(o, tk): v["Mined"] - v["Paid"] for o, x in t.items() for tk, v in x.items()}
@@ -957,20 +963,17 @@ class Controller(QObject):
     def allow_defender(self, mid: str) -> None:
         path = (self.root / "bin").resolve()
         if not dialogs.confirm(self.win, "Microsoft Defender",
-                               f"Додати теку {path} у виключення Microsoft Defender?\n\n"
-                               "Defender не перевірятиме лише файли в цій теці (там тільки майнери з офіційного GitHub, "
-                               "кожен перевіряється за SHA256). Решта комп'ютера захищена як і раніше. "
-                               "Прибрати виключення можна в «Безпека Windows» → «Захист від вірусів» → «Виключення».", "Дозволити"):
+                               tr("Додати теку {0} у виключення Microsoft Defender?\n\nDefender не перевірятиме лише файли в цій теці (там тільки майнери з офіційного GitHub, кожен перевіряється за SHA256). Решта комп'ютера захищена як і раніше. Прибрати виключення можна в «Безпека Windows» → «Захист від вірусів» → «Виключення».").format(path), tr('Дозволити')):
             return
         if self.test:
-            self.install_msg = "тестовий режим: виключення не додано"
+            self.install_msg = tr('тестовий режим: виключення не додано')
             return
         err = updater.allow_in_defender(self.root)
         if err:
-            dialogs.info(self.win, "Microsoft Defender", f"Не вдалося додати виключення: {err}", True)
+            dialogs.info(self.win, "Microsoft Defender", tr('Не вдалося додати виключення: {0}').format(err), True)
             return
         self.events.clear("defender")
-        self.events.log(f"Додано виключення Defender для {path}")
+        self.events.log(tr('Додано виключення Defender для {0}').format(path))
         if mid in MINERS:
             self.install_miner(mid, then_start=getattr(self, "_install_then_start", False))
 
@@ -999,7 +1002,7 @@ class Controller(QObject):
             tk = str(c.get("ticker") or c["id"])
             if tk not in best or _is_ru(self.coin(best[tk][0]) or {}) and not _is_ru(c):
                 best[tk] = (c["id"], r["profit"])
-        items = [(tk, f"{_coin_name(self.coin(cid) or {})} — ≈ {ec.fmt_uah(p)}/добу" if p is not None else _coin_name(self.coin(cid) or {}))
+        items = [(tk, tr('{0} — ≈ {1}/добу').format(_coin_name(self.coin(cid) or {}), ec.fmt_uah(p)) if p is not None else _coin_name(self.coin(cid) or {}))
                  for tk, (cid, p) in best.items()]
         cur = self.coin() or {}
         worker = "".join(ch for ch in socket.gethostname() if ch.isalnum() or ch in "_-")[:32] or "rig"   # ім'я ПК — типове ім'я воркера
@@ -1015,12 +1018,23 @@ class Controller(QObject):
                 "wallets": {tk: self.store.wallet_book(tk).get("active", "") for tk in best},
                 "worker": str(cur.get("worker") or worker),
                 "coins_note": "" if any(p is not None for _, p in best.values()) else
-                              "Прибуток з'явиться, щойно завантажаться ринкові дані (до хвилини) — його видно на сторінці «Монети»."}
+                              tr("Прибуток з'явиться, щойно завантажаться ринкові дані (до хвилини) — його видно на сторінці «Монети».")}
+
+    def set_lang(self, code: str) -> None:
+        self.s["UiLang"] = code if code in i18n.LANGS else "uk"
+        i18n.set_lang(self.s["UiLang"])
+        self.store.save_settings()
+        self.tray.retranslate()
+        self.rebuild_window()
 
     def run_wizard(self) -> None:
-        wz = Wizard(self.win, self.wizard_data())
-        wz.finished_ok.connect(self.wizard_done)
-        wz.exec()
+        while True:
+            wz = Wizard(self.win, self.wizard_data())
+            wz.finished_ok.connect(self.wizard_done)
+            wz.exec()
+            if not wz.new_lang:          # мову змінено — відкрити майстер заново вже цією мовою
+                break
+            self.set_lang(wz.new_lang)
         self.s["WizardDone"] = True              # і після «Пропустити» майстер більше сам не з'являється
         self.store.save_settings()
 
@@ -1032,7 +1046,7 @@ class Controller(QObject):
         if not c:
             return
         if d.get("address"):
-            self.store.add_wallet(c["ticker"], "Мій гаманець", d["address"])
+            self.store.add_wallet(c["ticker"], tr('Мій гаманець'), d["address"])
             self.store.save_wallets()
         self.apply_coin({"coin": c["id"], "miner": d.get("miner"), "wallet": d.get("address"), "worker": d.get("worker")}, ask=False)
         if d.get("address") and not self.runner.alive():
@@ -1060,7 +1074,7 @@ class Controller(QObject):
             self.win.hide()
             if not getattr(self, "_tray_hint", False):
                 self._tray_hint = True
-                self.tray.showMessage("Miner Panel працює", "Панель згорнулась біля годинника, майнінг триває. Вийти — правий клік по значку.")
+                self.tray.showMessage(tr('Miner Panel працює'), tr('Панель згорнулась біля годинника, майнінг триває. Вийти — правий клік по значку.'))
             return
         self.quit()
 
@@ -1072,7 +1086,7 @@ class Controller(QObject):
         elif k == "run:toggle":
             self.on_action("run:toggle")
         elif k == "quit":
-            if self.runner.alive() and not dialogs.confirm(None, "Miner Panel", "Вийти? Майнінг зупиниться, розгін відеокарти скинеться.", "Вийти"):
+            if self.runner.alive() and not dialogs.confirm(None, "Miner Panel", tr('Вийти? Майнінг зупиниться, розгін відеокарти скинеться.'), tr('Вийти')):
                 return
             self.quit()
 
@@ -1080,7 +1094,7 @@ class Controller(QObject):
         self._quitting = True
         self.timer.stop()
         if self.runner.alive():
-            self.stop_mining("вихід з панелі")
+            self.stop_mining(tr('вихід з панелі'))
         else:
             self.flush()
             self.store.save_settings()

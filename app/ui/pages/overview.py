@@ -9,6 +9,7 @@ from .. import theme
 from ..widgets import Card, ColumnChart, FlowLayout, NoticeCard, StatTile, button, clear_layout, label
 from . import Page
 from .common import DeviceCard
+from ...i18n import tr
 
 
 class OverviewPage(Page):
@@ -21,9 +22,9 @@ class OverviewPage(Page):
 
         # Головне зараз: прибуток, коли виплата (з балансом пулу), ціна. Плитки переносяться, коли не вміщаються
         tiles = FlowLayout(min_w=theme.pt(230), uniform=True)
-        self.t_profit = StatTile("Прибуток за добу", hero=True)
-        self.t_payout = StatTile("До виплати з пулу", "payout", meter=True)
-        self.t_price = StatTile("Ціна монети")
+        self.t_profit = StatTile(tr('Прибуток за добу'), hero=True)
+        self.t_payout = StatTile(tr('До виплати з пулу'), "payout", meter=True)
+        self.t_price = StatTile(tr('Ціна монети'))
         for t in (self.t_profit, self.t_payout, self.t_price):
             tiles.addWidget(t)
         self.lay.addLayout(tiles)
@@ -34,8 +35,8 @@ class OverviewPage(Page):
         self.lay.addWidget(self.devs)
 
         # Гроші за періоди і прогноз — окремі картки поруч; у кожній цей ПК і вся адреса на пулі
-        self.c_periods, self.periods, self.pool_box, self.pool_title, self.pool_periods = self._two_box_card("Гроші за періоди")
-        self.c_fc, self.fc_grid, self.fc_pool_box, self.fc_pool_title, self.fc_pool = self._two_box_card("Прогноз")
+        self.c_periods, self.periods, self.pool_box, self.pool_title, self.pool_periods = self._two_box_card(tr('Гроші за періоди'))
+        self.c_fc, self.fc_grid, self.fc_pool_box, self.fc_pool_title, self.fc_pool = self._two_box_card(tr('Прогноз'))
         self.pc_mined = label("", "Secondary", wrap=True)          # скільки монет добув цей ПК (коли монета одна)
         pf = FlowLayout(natural=True)
         pf.addWidget(self.c_periods)
@@ -44,7 +45,7 @@ class OverviewPage(Page):
         self.c_periods.body.addWidget(self.pc_mined)
 
         # Усі монети — лише коли їх кілька: що добув цей ПК і що лишилось на пулах після перемикання
-        self.c_coins = Card("Усі монети")
+        self.c_coins = Card(tr('Усі монети'))
         self.coins_g = QGridLayout()
         self.coins_g.setHorizontalSpacing(28)
         self.coins_g.setVerticalSpacing(10)
@@ -52,15 +53,15 @@ class OverviewPage(Page):
         self.lay.addWidget(self.c_coins)
 
         bottom = FlowLayout(min_w=theme.pt(330))
-        self.c_days = Card("Прибуток за 7 днів (дохід мінус світло)")
+        self.c_days = Card(tr('Прибуток за 7 днів (дохід мінус світло)'))
         self.chart = ColumnChart()
         self.chart.setMinimumHeight(190)
         self.c_days.body.addWidget(self.chart)
         bottom.addWidget(self.c_days)
-        self.c_best = Card("Що майнити", "benchmark")
+        self.c_best = Card(tr('Що майнити'), "benchmark")
         self.best_text = label("", wrap=True)
         self.best_sub = label("", "Muted", wrap=True)
-        self.best_btn = button("Відкрити рейтинг монет", None, lambda: self.action.emit("open:coins"))
+        self.best_btn = button(tr('Відкрити рейтинг монет'), None, lambda: self.action.emit("open:coins"))
         self.c_best.body.addWidget(self.best_text)
         self.c_best.body.addWidget(self.best_sub)
         self.c_best.body.addStretch(1)
@@ -75,7 +76,7 @@ class OverviewPage(Page):
         card = Card(title)
         two = FlowLayout(spacing=28, natural=True)
         out = []
-        for sub in ("Цей ПК", ""):
+        for sub in (tr('Цей ПК'), ""):
             box = QWidget()
             v = QVBoxLayout(box)
             v.setContentsMargins(0, 0, 0, 0)
@@ -83,7 +84,7 @@ class OverviewPage(Page):
             t = label(sub, "Secondary", wrap=True)
             v.addWidget(t)
             # Подробиці адреси (воркери, хешрейт) — окремим рядком, щоб заголовок не розпирав картку
-            t.sub = label("за хешрейтом, ціною і тарифом" if sub else "", "Muted", wrap=True)
+            t.sub = label(tr('за хешрейтом, ціною і тарифом') if sub else "", "Muted", wrap=True)
             t.sub.setVisible(bool(sub))
             v.addWidget(t.sub)
             g = QGridLayout()
@@ -99,7 +100,7 @@ class OverviewPage(Page):
     @staticmethod
     def _fill_pc(g, rows) -> None:
         clear_layout(g)
-        for col, h in enumerate(("", "Дохід", "Світло", "Чистими")):
+        for col, h in enumerate(("", tr('Дохід'), tr('Світло'), tr('Чистими'))):
             g.addWidget(label(h, "KeyHead"), 0, col)
         for r, (name, inc, cst, net) in enumerate(rows, 1):
             g.addWidget(label(name, "CardTitle"), r, 0)
@@ -115,7 +116,7 @@ class OverviewPage(Page):
         title_lbl.sub.setText(sub)
         title_lbl.sub.setVisible(bool(sub))
         box.setVisible(bool(rows))
-        for col, h in enumerate(("", "Монети", "≈ ₴")):
+        for col, h in enumerate(("", tr('Монети'), "≈ ₴")):
             g.addWidget(label(h, "KeyHead"), 0, col)
         for r, (name, coins, uah) in enumerate(rows, 1):
             g.addWidget(label(name, "CardTitle"), r, 0)
@@ -137,19 +138,19 @@ class OverviewPage(Page):
         if parts:
             # Розбивка по пристроях — у картках пристроїв, дохід і світло — у «Прогнозі»; тут — монети на добу і ціна години
             total = sum(parts)
-            sub = s["coins_day"] if s["profit_day"] is not None else "цей ПК не майнить"
+            sub = s["coins_day"] if s["profit_day"] is not None else tr('цей ПК не майнить')
             if sm.get("now_text"):
-                sub += f"\nзараз {sm['now_text']}"
+                sub += tr('\nзараз {0}').format(sm['now_text'])
             self.t_profit.set(fmt_uah(total), sub, value_color=t.good_text if total >= 0 else t.critical)
         else:
-            self.t_profit.set("—", "Майнер зупинено. Натисни «Старт» угорі — прогноз з'явиться за хвилину.", value_color=t.muted)
+            self.t_profit.set("—", tr("Майнер зупинено. Натисни «Старт» угорі — прогноз з'явиться за хвилину."), value_color=t.muted)
         p, b = s["payout"], s["balance"]
         if p["switch_ok"] is None:
             sw = ""
         else:
-            sw = "✓ можна відключитись" if p["switch_ok"] else "▲ " + p["switch_text"].replace("ні — ", "відключатись поки не варто: ")
+            sw = tr('✓ можна відключитись') if p["switch_ok"] else "▲ " + p["switch_text"].replace(tr('ні — '), tr('відключатись поки не варто: '))
         # Баланс пулу — тут же, а не окремою плиткою: «0,7377 з 1 PRL ≈ 74,84 ₴»
-        have = f"{b['total']} з {p['threshold']} {b['uah']}".strip() if b.get("available", True) and p["threshold"] != "—" else b.get("message", "")
+        have = tr('{0} з {1} {2}').format(b['total'], p['threshold'], b['uah']).strip() if b.get("available", True) and p["threshold"] != "—" else b.get("message", "")
         self.t_payout.set(f"{p['pct']:.0f} %" if p["threshold"] != "—" else "—",
                           "\n".join(x for x in (have, p["text"] if p["text"] != "—" else "", sw) if x), p["pct"])
         self.t_price.set(sm.get("price", "—"), sm.get("price_sub", ""), value_color=t.accent)
@@ -167,9 +168,9 @@ class OverviewPage(Page):
         crow = sm.get("coins") or []
         self.c_coins.setVisible(len(crow) > 1)
         # Одна монета — окрема картка зайва; лише скільки добув цей ПК (з усієї адреси на пулі)
-        self.pc_mined.setText(f"Добув цей ПК: {crow[0]['mined']}" if len(crow) == 1 and crow[0]["mined"] != "—" else "")
+        self.pc_mined.setText(tr('Добув цей ПК: {0}').format(crow[0]['mined']) if len(crow) == 1 and crow[0]["mined"] != "—" else "")
         self.pc_mined.setVisible(len(crow) == 1 and crow[0]["mined"] != "—")
-        for col, h in enumerate(("Монета", "Добув цей ПК", "На пулі", "≈ ₴")):
+        for col, h in enumerate((tr('Монета'), tr('Добув цей ПК'), tr('На пулі'), "≈ ₴")):
             self.coins_g.addWidget(label(h, "KeyHead"), 0, col)
         for r, x in enumerate(crow, 1):
             self.coins_g.addWidget(label(x["ticker"], "CardTitle"), r, 0)
@@ -191,11 +192,10 @@ class OverviewPage(Page):
         self.chart.set_points(s["days"])
         bst = s["best"]
         if bst["current"]:
-            self.best_text.setText(f"<b>✓ Ти вже майниш найвигіднішу монету:</b> {bst['coin']}")
-            self.best_sub.setText(f"За еталоном {fmt_uah(bst['profit'])} за добу, твій результат {fmt_uah(bst['mine'])}. "
-                                  "Різниця — через твій розгін і світло.")
-            self.best_btn.setText("Відкрити рейтинг монет")
+            self.best_text.setText(tr('<b>✓ Ти вже майниш найвигіднішу монету:</b> {0}').format(bst['coin']))
+            self.best_sub.setText(tr('За еталоном {0} за добу, твій результат {1}. Різниця — через твій розгін і світло.').format(fmt_uah(bst['profit']), fmt_uah(bst['mine'])))
+            self.best_btn.setText(tr('Відкрити рейтинг монет'))
         else:
-            self.best_text.setText(f"<b>Вигідніше зараз:</b> {bst['coin']} — {fmt_uah(bst['profit'])} за добу")
-            self.best_sub.setText("Перед перемиканням перевір «До виплати» — щоб не лишити монет на пулі.")
-            self.best_btn.setText("Майнити її")
+            self.best_text.setText(tr('<b>Вигідніше зараз:</b> {0} — {1} за добу').format(bst['coin'], fmt_uah(bst['profit'])))
+            self.best_sub.setText(tr('Перед перемиканням перевір «До виплати» — щоб не лишити монет на пулі.'))
+            self.best_btn.setText(tr('Майнити її'))

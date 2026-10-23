@@ -13,6 +13,7 @@ import os
 import sys
 from pathlib import Path
 from typing import Any
+from ..i18n import tr
 
 
 def data_dir() -> Path:
@@ -50,7 +51,7 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "HashrateNoKey": "", "IdleWatts": 0,
     "WorkerOwners": {}, "HiveOsToken": "", "HiveWorkerMap": {}, "HiveAutoRestart": False,
     # Лише нова версія
-    "UiExpert": False, "UiTheme": "dark", "UiFont": "large", "WizardDone": False, "Autostart": False, "MinimizeToTray": False, "ServerAuto": True,
+    "UiExpert": False, "UiTheme": "dark", "UiFont": "large", "WizardDone": False, "UiLang": "", "Autostart": False, "MinimizeToTray": False, "ServerAuto": True,
 }
 
 
@@ -101,7 +102,7 @@ class Store:
             self.wallets = {}
             for c in self.coins:
                 if c.get("ticker") and c.get("wallet"):
-                    self.add_wallet(c["ticker"], "Імпортовано", c["wallet"], activate=False)
+                    self.add_wallet(c["ticker"], tr('Імпортовано'), c["wallet"], activate=False)
             self.save_wallets()
         self.sync_coin_wallets()
         if not any(c.get("id") == self.settings.get("Coin") for c in self.coins) and self.coins:

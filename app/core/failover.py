@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import time
 from collections import deque
+from ..i18n import tr
 
 SHARE_GAP_MIN_S = 1800
 SHARE_GAP_FACTOR = 10
@@ -67,14 +68,14 @@ class Failover:
             if self.dead_since is None:
                 self.dead_since = now
             if now - self.dead_since >= 15:
-                reason = "майнер несподівано завершився"
+                reason = tr('майнер несподівано завершився')
         else:
             self.dead_since = None
             if not stats or float(stats.get("hr") or 0) <= 0:
                 if self.hr_zero_since is None:
                     self.hr_zero_since = now
                 if now - self.hr_zero_since >= 180:
-                    reason, shift = "немає хешрейту 3 хв", True
+                    reason, shift = tr('немає хешрейту 3 хв'), True
             else:
                 self.hr_zero_since = None
             if stats:
@@ -84,7 +85,7 @@ class Failover:
                         self.share_times.append(now)
                     self.last_accepted, self.accepted_at = acc, now
                 elif now - self.accepted_at >= self.share_gap_limit():
-                    reason, shift = f"немає прийнятих шар {(now - self.accepted_at) / 60:.0f} хв", True
+                    reason, shift = tr('немає прийнятих шар {0:.0f} хв').format((now - self.accepted_at) / 60), True
         if not reason:
             return None
         self.restarts = [t for t in self.restarts if now - t <= 1800]

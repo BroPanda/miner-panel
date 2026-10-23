@@ -13,6 +13,7 @@ import argparse
 import os
 import sys
 from pathlib import Path
+from .i18n import tr
 
 
 def _settle(app) -> None:
@@ -133,6 +134,8 @@ def main(argv: list[str] | None = None) -> int:
 
     snap_dir = os.environ.get("PANEL_TEST_SNAP")
     if args.demo:
+        from . import i18n
+        i18n.set_lang(os.environ.get("PANEL_LANG", "uk"))
         if snap_dir:
             for f in snapshots_demo(app, Path(snap_dir)):
                 print(f)
@@ -152,8 +155,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if not args.test and _old_panel_running():
         theme.apply(app, "dark")
-        QMessageBox.warning(None, "Miner Panel", "Зараз працює стара панель (MinerPanel.ps1). Закрий її, а потім відкрий нову — "
-                                                 "дві панелі одночасно керували б одним майнером і відеокартою.")
+        QMessageBox.warning(None, "Miner Panel", tr('Зараз працює стара панель (MinerPanel.ps1). Закрий її, а потім відкрий нову — дві панелі одночасно керували б одним майнером і відеокартою.'))
         return 1
     from .controller import run
     return run(app, test=args.test, minimized=args.minimized)

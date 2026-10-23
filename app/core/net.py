@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Any
 
 import requests
+from ..i18n import tr
 
 UA = "MinerPanel/2.0"
 
@@ -24,7 +25,7 @@ def get_json(url: str, timeout: float = 20, headers: dict | None = None, params:
     try:
         return r.json()
     except ValueError as e:
-        raise HttpError("відповідь не JSON") from e
+        raise HttpError(tr('відповідь не JSON')) from e
 
 
 def send_json(method: str, url: str, body: Any, timeout: float = 20, headers: dict | None = None) -> Any:

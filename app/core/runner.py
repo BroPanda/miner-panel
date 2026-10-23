@@ -11,6 +11,7 @@ import psutil
 from . import updater
 from .miners import MINERS, Miner
 from .platform import find_processes, hidden_popen, kill_tree
+from ..i18n import tr
 
 
 class Runner:
@@ -74,9 +75,9 @@ class Runner:
         """Запустити майнер для монети з серверами в заданому порядку (перший — основний). → (успіх, текст помилки)."""
         exe = updater.miner_exe(self.root, m)
         if not exe:
-            return False, f"{m.name} ще не встановлено"
+            return False, tr('{0} ще не встановлено').format(m.name)
         if not urls:
-            return False, "для монети не вказано адресу пулу"
+            return False, tr('для монети не вказано адресу пулу')
         login = str(coin.get("wallet") or "")
         if coin.get("worker"):
             login += f".{coin['worker']}"

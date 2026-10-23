@@ -6,6 +6,7 @@ from PySide6.QtGui import QAction, QColor, QIcon, QPainter, QPixmap
 from PySide6.QtWidgets import QMenu, QSystemTrayIcon
 
 from . import theme
+from ..i18n import tr
 
 
 def dot_icon(color: str) -> QIcon:
@@ -28,9 +29,9 @@ class Tray(QSystemTrayIcon):
     def __init__(self, parent=None):
         super().__init__(parent)
         m = QMenu()
-        self.a_open = QAction("Відкрити панель")
-        self.a_run = QAction("Старт")
-        self.a_quit = QAction("Вийти (майнінг зупиниться)")
+        self.a_open = QAction(tr('Відкрити панель'))
+        self.a_run = QAction(tr('Старт'))
+        self.a_quit = QAction(tr('Вийти (майнінг зупиниться)'))
         for a, key in ((self.a_open, "open"), (self.a_run, "run:toggle"), (self.a_quit, "quit")):
             a.triggered.connect(lambda _=False, k=key: self.requested.emit(k))
             m.addAction(a)
@@ -38,12 +39,16 @@ class Tray(QSystemTrayIcon):
         self.setContextMenu(m)
         self._menu = m
         self.activated.connect(lambda r: self.requested.emit("open") if r == QSystemTrayIcon.Trigger else None)
-        self.update_state("off", "Зупинено", False)
+        self.update_state("off", tr('Зупинено'), False)
+
+    def retranslate(self) -> None:
+        self.a_open.setText(tr('Відкрити панель'))
+        self.a_quit.setText(tr('Вийти (майнінг зупиниться)'))
 
     def update_state(self, level: str, text: str, running: bool) -> None:
         self.setIcon(dot_icon(theme.status_color(level, theme.DARK) if level != "off" else "#898781"))
         self.setToolTip(f"Miner Panel — {text}")
-        self.a_run.setText("Зупинити майнінг" if running else "Почати майнінг")
+        self.a_run.setText(tr('Зупинити майнінг') if running else tr('Почати майнінг'))
 
     def notify(self, n) -> None:
         icon = {"error": QSystemTrayIcon.Critical, "warn": QSystemTrayIcon.Warning}.get(n.level, QSystemTrayIcon.Information)
